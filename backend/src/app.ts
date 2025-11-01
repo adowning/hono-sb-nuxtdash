@@ -12,6 +12,7 @@ import errorHandler from "./middlewares/error.middleware";
 import swaggerApp from "./middlewares/swagger.middleware";
 import authRoutes from "./routes/auth.routes";
 import meRoutes from "./routes/me.routes";
+import userRoutes from "./routes/user.routes";
 
 // type AuthContext = {
 //   authUser?: AuthUser;
@@ -37,6 +38,7 @@ const app = new Hono()
   .route("/ui", swaggerApp)
   .route("/auth", authRoutes)
   .route("/me", meRoutes)
+  .route("/users", userRoutes)
   .onError(errorHandler);
 
 // Export the app TYPE

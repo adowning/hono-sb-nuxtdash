@@ -38,7 +38,6 @@ export async function logTransaction(
 ): Promise<any>
 {
   try {
-    console.log(request)
     const transaction = await db
       .insert(transactionLogTable)
       .values({

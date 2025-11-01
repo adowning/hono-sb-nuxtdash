@@ -1,15 +1,13 @@
 import { supabase } from "@/libs/supabase/client";
 import { zValidator } from "@/middlewares/zodValidator.middleware";
 
-import { db } from "@/libs/database/db";
-import { userTable } from "@/libs/database/schema";
+import authMiddleware from "@/middlewares/auth.middleware";
+import { type AppBindings } from "@/shared/types";
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import { endTime, startTime } from "hono/timing";
 import { z } from "zod";
-import authMiddleware from "@/middlewares/auth.middleware";
-import { type AppBindings } from "@/shared/types";
 
 const CREATING_BOTS = false;
 
@@ -23,7 +21,8 @@ const authRoutes = new Hono<{ Variables: AppBindings }>()
         password: z.string().min(8),
       })
     ),
-    async (c) => {
+    async (c) =>
+    {
       const { username, password } = c.req.valid("json");
       const { data, error } = await supabase.auth.signUp({
         email: `${username}-${new Date().getTime()}@cashflowcasino.com`,
@@ -46,7 +45,7 @@ const authRoutes = new Hono<{ Variables: AppBindings }>()
       // const user = await db.insert(userTable).values(dbUser).returning();
       if (error || !data || !data.session) {
         console.error("Error while signing in", error);
-        throw new HTTPException(401, { message: error.message });
+        throw new HTTPException(401, { message: (error as any)?.message || "Authentication failed" });
       }
 
       setCookie(c, "access_token", data?.session.access_token, {
@@ -79,7 +78,8 @@ const authRoutes = new Hono<{ Variables: AppBindings }>()
         password: z.string().min(8),
       })
     ),
-    async (c) => {
+    async (c) =>
+    {
       const { email, password } = c.req.valid("json");
 
       const response = await supabase.auth.signInWithPassword({
@@ -89,7 +89,7 @@ const authRoutes = new Hono<{ Variables: AppBindings }>()
 
       if (response.error || !response.data || !response.data.session) {
         console.error("Error while signing in", response.error);
-        throw new HTTPException(401, { message: response.error.message });
+        throw new HTTPException(401, { message: response.error?.message || "Authentication failed" });
       }
 
       setCookie(c, "access_token", response.data?.session.access_token, {
@@ -110,7 +110,7 @@ const authRoutes = new Hono<{ Variables: AppBindings }>()
         secure: true,
       });
 
-      return c.json(data.user);
+      return c.json(response.data.user);
     }
   )
   .post(
@@ -123,7 +123,8 @@ const authRoutes = new Hono<{ Variables: AppBindings }>()
         accessToken: z.string().optional(),
       })
     ),
-    async (c) => {
+    async (c) =>
+    {
       const { token, provider, accessToken } = c.req.valid("json");
       // start a new timer
       startTime(c, "supabase.auth.signInWithProvider");
@@ -161,7 +162,8 @@ const authRoutes = new Hono<{ Variables: AppBindings }>()
       return c.json(data.user);
     }
   )
-  .get("/refresh", async (c) => {
+  .get("/refresh", async (c) =>
+  {
     const refresh_token = getCookie(c, "refresh_token");
     if (!refresh_token) {
       throw new HTTPException(403, { message: "No refresh token" });
@@ -173,7 +175,7 @@ const authRoutes = new Hono<{ Variables: AppBindings }>()
 
     if (error) {
       console.error("Error while refreshing token", error);
-      throw new HTTPException(403, { message: error.message });
+      throw new HTTPException(403, { message: error?.message || "Token refresh failed" });
     }
 
     if (data?.session) {
@@ -189,11 +191,17 @@ const authRoutes = new Hono<{ Variables: AppBindings }>()
 
     return c.json(data.user);
   })
-  .get("/get-user", authMiddleware, async (c) => {
+  .get("/get-user", authMiddleware, async (c) =>
+  {
     const user = c.get("user");
     // const sessionCache = c.get('sessionCache')
     if (!user) {
       throw new HTTPException(403, { message: "No user" });
+    }
+
+    const refresh_token = getCookie(c, "refresh_token");
+    if (!refresh_token) {
+      throw new HTTPException(403, { message: "No refresh token" });
     }
 
     const { data, error } = await supabase.auth.refreshSession({
@@ -202,7 +210,7 @@ const authRoutes = new Hono<{ Variables: AppBindings }>()
 
     if (error) {
       console.error("Error while refreshing token", error);
-      throw new HTTPException(403, { message: error.message });
+      throw new HTTPException(403, { message: error?.message || "Token refresh failed" });
     }
 
     if (data?.session) {

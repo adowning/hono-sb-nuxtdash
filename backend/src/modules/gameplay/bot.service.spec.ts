@@ -16,7 +16,7 @@ const mockSupabase = {
         signUp: vi.fn(),
         signInWithPassword: vi.fn(),
     },
-};
+} as any;
 
 const mockDb = {
     query: {
@@ -60,7 +60,7 @@ describe('BotService', () =>
             balanceService: mockBalanceService,
             betService: mockBetService,
             depositService: mockDepositService,
-        };
+        } as any;
 
         botService = createBotService(
             {
@@ -214,7 +214,7 @@ describe('BotService', () =>
                 balanceService: mockBalanceService,
                 betService: mockBetService,
                 depositService: mockDepositService,
-            };
+            } as any;
 
             const service = createBotService({}, customDeps);
 

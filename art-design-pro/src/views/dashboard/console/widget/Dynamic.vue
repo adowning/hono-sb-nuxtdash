@@ -20,34 +20,34 @@
 <script setup lang="ts">
   const list = reactive([
     {
-      username: '中小鱼',
-      type: '关注了',
-      target: '誶誶淰'
+      username: 'medium and small fish',
+      type: 'Follow',
+      target: '簇谇淰'
     },
     {
-      username: '何小荷',
-      type: '发表文章',
-      target: 'Vue3 + Typescript + Vite 项目实战笔记'
+      username: 'He Xiaohe',
+      type: 'Publish an article',
+      target: 'Vue3 + Typescript + Vite project practical notes'
     },
     {
-      username: '誶誶淰',
-      type: '提出问题',
-      target: '主题可以配置吗'
+      username: '谇谇淰',
+      type: 'Ask a question',
+      target: 'Can the theme be configured'
     },
     {
-      username: '发呆草',
-      type: '兑换了物品',
-      target: '《奇特的一生》'
+      username: 'Daicao',
+      type: 'Exchanged items',
+      target: '"A Strange Life"'
     },
     {
-      username: '甜筒',
-      type: '关闭了问题',
-      target: '发呆草'
+      username: 'Sweet Cone',
+      type: 'Issue closed',
+      target: 'daze grass'
     },
     {
-      username: '冷月呆呆',
-      type: '兑换了物品',
-      target: '《高效人士的七个习惯》'
+      username: 'Leng Yue Dadai',
+      type: 'Exchanged items',
+      target: '"Seven Habits of Highly Effective People"'
     }
   ])
 </script>

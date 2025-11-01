@@ -181,9 +181,10 @@ async function validateGameLimits(
   }
   const settings = configurationManager.getConfiguration();
   // Check game-specific wager limits (these would typically come from game configuration)
+  const systemLimits = settings.systemLimits as any;
   const gameLimits: GameLimits = {
-    minBet: request.game.minBet || settings.systemLimits.minBetAmount, // 1.00 in cents - should be configurable per game
-    maxBet: request.game.maxBet || settings.systemLimits.maxBetAmount, // 1000.00 in cents - should be configurable per game
+    minBet: request.game.minBet || systemLimits?.minBetAmount || 100, // 1.00 in cents - should be configurable per game
+    maxBet: request.game.maxBet || systemLimits?.maxBetAmount || 100000, // 1000.00 in cents - should be configurable per game
   };
 
   if (request.wagerAmount < gameLimits.minBet) {
@@ -250,6 +251,8 @@ async function validateDailyLossLimit(
     today.getDate()
   );
   const settings = configurationManager.getConfiguration();
+  const systemLimits = settings.systemLimits as any;
+
   // Calculate today's total losses (negative GGR)
   const todayStats = await db
     .select({
@@ -268,7 +271,7 @@ async function validateDailyLossLimit(
   const todayLosses = (stats?.totalWager || 0) - (stats?.totalWon || 0);
 
   // Daily loss limit (should be configurable per user/VIP level)
-  const dailyLossLimit = settings.systemLimits.maxDailyLoss; // $10,000 - should be configurable
+  const dailyLossLimit = systemLimits?.maxDailyLoss || 10000000; // $10,000 - should be configurable
 
   if (todayLosses + request.wagerAmount > dailyLossLimit) {
     return {
@@ -299,7 +302,8 @@ async function validateSessionLossLimit(
     ((request.gameSession as any).totalWon || 0);
 
   // Session loss limit (should be configurable per game/session)
-  const sessionLossLimit = settings.systemLimits.maxSessionLoss; // $1,000 - should be configurable
+  const systemLimits = settings.systemLimits as any;
+  const sessionLossLimit = systemLimits?.maxSessionLoss || 1000000; // $1,000 - should be configurable
 
   if (sessionLosses + request.wagerAmount > sessionLossLimit) {
     return {
@@ -330,7 +334,6 @@ async function validateBalance(
   // const walletBalance = user;
 
   // Check balance using wallet service
-  console.log(request.userBalance);
   const balanceCheck = await checkBalance(
     request.userBalance,
     request.wagerAmount
@@ -367,10 +370,11 @@ export async function getGameLimits(
 
   // These limits should ideally come from a game configuration table
   // For now, using default values that should be configurable
+  const systemLimits = settings.systemLimits as any;
   return {
-    minBet: request.game.minBet || settings.systemLimits.minBetAmount, // $1.00
-    maxBet: request.game.minBet || settings.systemLimits.maxBetAmount, // $1000.00
-    maxDailyLoss: settings.systemLimits.maxDailyLoss, // $10,000
-    maxSessionLoss: settings.systemLimits.maxSessionLoss, // $1,000
+    minBet: request.game.minBet || systemLimits?.minBetAmount || 100, // $1.00
+    maxBet: request.game.maxBet || systemLimits?.maxBetAmount || 100000, // $1000.00
+    maxDailyLoss: systemLimits?.maxDailyLoss || 10000000, // $10,000
+    maxSessionLoss: systemLimits?.maxSessionLoss || 1000000, // $1,000
   };
 }

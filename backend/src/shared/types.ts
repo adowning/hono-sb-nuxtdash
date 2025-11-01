@@ -8,7 +8,7 @@ import type { AppType } from "../app";
 import { type User, type UserBalance } from "../libs/database/schema";
 // import { CourseTagSchema } from "../prisma/generated/types";
 
-type UserWithBalance = User & {
+export type UserWithBalance = User & {
   balance: UserBalance
 }
 export interface AppBindings
@@ -42,6 +42,29 @@ export const ZGetAllUsersSchema = z.object({
 });
 export type TGetUserType = z.infer<typeof ZGetUserSchema>;
 export type TGetAllUsersType = z.infer<typeof ZGetAllUsersSchema>;
+
+// Pagination interfaces and types
+export interface PaginationMeta
+{
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+export interface PaginatedResponse<T>
+{
+  data: T[];
+  pagination: PaginationMeta;
+}
+
+export interface PaginationParams
+{
+  page?: number;
+  perPage?: number;
+}
 
 // export const ZGetUserSchema = z.object({
 //   id: z.string().uuid().openapi({

@@ -7,13 +7,13 @@ import
   sendPostBetNotifications,
 } from "../../shared/notifications.service";
 import { logTransaction } from "../../shared/transaction.service";
+import { getJackpotPools, processJackpotContribution } from "../jackpots/jackpot.service";
 import
 {
   addWinnings,
   deductBetAmount,
   getDetailedBalance,
 } from "./balance-management.service";
-import { getJackpotPools, processJackpotContribution } from "./jackpot.service";
 
 import
 {
@@ -70,7 +70,7 @@ export interface BetOutcome
 
   // Metadata
   transactionId?: string;
-  processingTime: number;
+  time: number;
 }
 
 export interface GameOutcome
@@ -291,7 +291,7 @@ export async function processBet(
         ggrContribution: 0,
         success: false,
         error: validation.reason,
-        processingTime: Date.now() - startTime,
+        time: Date.now() - startTime,
       };
     }
 
@@ -432,29 +432,7 @@ export async function processBet(
     const bonusBalanceBefore = userBalance.bonusBalance;
     const bonusBalanceAfter = finalBalances.bonusBalance;
 
-    const transactionId = await logTransaction({
-      userId: betRequest.userId,
-      gameId: betRequest.gameId,
-      operatorId: "79032f3f-7c4e-4575-abf9-4298ad3e9d1a",
-      wagerAmount: betRequest.wagerAmount,
-      winAmount: gameOutcome.winAmount,
-      type: "BET",
-      realBalanceBefore,
-      realBalanceAfter,
-      bonusBalanceBefore,
-      bonusBalanceAfter,
-      ggrContribution: ggrResult.ggrAmount,
-      jackpotContribution: totalJackpotContribution,
-      vipPointsAdded: vipCalculation.totalPoints,
-      sessionId: betRequest.sessionId,
-      status: "PENDING",
-    });
 
-    if (!transactionId) {
-      console.error(
-        "Transaction logging failed, but continuing with bet processing"
-      );
-    }
 
     // 12. Send realtime notifications
     let realBalanceChange = 0;
@@ -500,14 +478,36 @@ export async function processBet(
     });
 
     const processingTime = Date.now() - startTime;
-
     // Performance check for sub-300ms requirement
     if (processingTime > 300) {
       console.warn(
         `⚠️ Bet processing exceeded 300ms target: ${processingTime}ms`
       );
     }
+    const transactionId = await logTransaction({
+      userId: betRequest.userId,
+      gameId: betRequest.gameId,
+      operatorId: "79032f3f-7c4e-4575-abf9-4298ad3e9d1a",
+      wagerAmount: betRequest.wagerAmount,
+      winAmount: gameOutcome.winAmount,
+      type: "BET",
+      realBalanceBefore,
+      realBalanceAfter,
+      bonusBalanceBefore,
+      bonusBalanceAfter,
+      processingTime,
+      ggrContribution: ggrResult.ggrAmount,
+      jackpotContribution: totalJackpotContribution,
+      vipPointsAdded: vipCalculation.totalPoints,
+      sessionId: betRequest.sessionId,
+      status: "PENDING",
+    });
 
+    if (!transactionId) {
+      console.error(
+        "Transaction logging failed, but continuing with bet processing"
+      );
+    }
     return {
       userId: validatedBetRequest.userId,
       gameId: validatedBetRequest.gameId,
@@ -520,7 +520,7 @@ export async function processBet(
       ggrContribution: ggrResult.ggrAmount,
       success: true,
       transactionId,
-      processingTime,
+      time: processingTime,
     };
   } catch (error) {
     console.error("Bet processing failed:", error);
@@ -530,6 +530,7 @@ export async function processBet(
       betRequest.userId,
       error instanceof Error ? error.message : "Bet processing failed"
     );
+    const processingTime = Date.now() - startTime;
 
     return {
       userId: validatedBetRequest.userId,
@@ -543,7 +544,7 @@ export async function processBet(
       ggrContribution: 0,
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
-      processingTime: Date.now() - startTime,
+      time: processingTime,
     };
   }
 }

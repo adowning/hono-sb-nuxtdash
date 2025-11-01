@@ -8,7 +8,7 @@ $background-color: #020518;
 /* Override element-plus default dark background color */
 html.dark {
   //element-plus
-  // --el-bg-color: $background-color;
+  --el-bg-color: $background-color;
   --el-text-color-regular: $font-color;
 
   // Rich text editor

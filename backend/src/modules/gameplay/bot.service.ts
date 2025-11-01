@@ -1,5 +1,5 @@
 import { supabase } from "@/libs/supabase/client";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getOrCreateBalance } from "./balance-management.service";
 
 import { db } from "@/libs/database/db";
@@ -131,6 +131,8 @@ export class BotService
 {
   private userId: string | null = null;
   private sessionToken: string | null = null;
+  private sessionId: string | null = null;
+  private gameSessionId: string | null = null;
   private isRunning = false;
   private intervalId: NodeJS.Timeout | null = null;
   private config: BotConfig;
@@ -204,11 +206,14 @@ export class BotService
 
       this.userId = user.id;
 
-      // Set up game session
-      await this.initializeGameSession();
+
 
       // Authenticate user
       await this.authenticateBotUser(botEmail, botPassword);
+
+      // Set up game session
+      await this.initializeGameSession();
+
 
       this.lastActivity = new Date();
       return true;
@@ -283,15 +288,18 @@ export class BotService
     const sessionData = {
       id: uuidv4(),
       userId: this.userId,
-      authSessionId: this.userId,
+      authSessionId: this.sessionId,
       status: "ACTIVE" as const,
       gameName: this.gameName,
       gameId: this.gameId,
     };
-
+    this.gameSessionId = sessionData.id
     // Check for existing session
     const existingSession = await this.dependencies.database.query.gameSessionTable.findFirst({
-      where: eq(gameSessionTable.userId, this.userId),
+      where: and(
+        eq(gameSessionTable.userId, this.userId),
+        eq(gameSessionTable.status, "ACTIVE"),
+      ),
     });
 
     if (!existingSession) {
@@ -321,6 +329,27 @@ export class BotService
     }
 
     this.sessionToken = signInResult.data.session.access_token;
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    if (error) {
+      console.error('Error getting session:', error.message);
+      throw new BotAuthenticationError(
+        `Failed to sign in bot user: ${signInResult.error}`
+      );
+    }
+
+    if (session && session.access_token) {
+      try {
+        const sessionTokenParts = session.access_token.split('.');
+        if (sessionTokenParts.length >= 2) {
+          const tokenPayload = JSON.parse(Buffer.from(sessionTokenParts[1] as string, 'base64').toString('ascii'));
+          this.sessionId = tokenPayload.session_id;
+        }
+      } catch (e) {
+        console.error('Error parsing access token:', e);
+      }
+    }
+
   }
 
   /**
@@ -458,7 +487,7 @@ export class BotService
         userId: this.userId,
         gameId: this.gameId,
         wagerAmount,
-        sessionId: uuidv4(),
+        sessionId: this.gameSessionId as string,
         operatorId: "bot",
       };
 
@@ -472,7 +501,7 @@ export class BotService
       const result = await this.dependencies.betService.processBet(betRequest, gameOutcome);
 
       this.lastActivity = new Date();
-
+      console.log(result.transactionId[0])
       return {
         success: result.success,
         result: result.success ? {

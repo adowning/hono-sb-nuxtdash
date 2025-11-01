@@ -15,18 +15,19 @@ import
 
 // User Relations (One-to-Many)
 export const userRelations = relations(userTable, ({ one, many }) => ({
-  sessions: many(sessionTable),
-  transactions: many(transactionLogTable),
-  affiliatePayouts: many(affiliatePayoutTable),
-  userBonuses: many(userBonusTable),
-  deposits: many(depositTable),
-  gameSessions: many(gameSessionTable),
-  jackpotsWonBy: many(jackpotTable), // Tracks jackpots where this user was the last winner
-  withdrawals: many(withdrawalTable),
-  balance: one(userBalanceTable, {
-    fields: [userTable.id],
-    references: [userBalanceTable.userId],
+  operator: one(operatorTable, {
+    fields: [userTable.operatorId],
+    references: [operatorTable.id]
   }),
+  sessions: many(sessionTable),
+  gameSessions: many(gameSessionTable),
+  userBonuses: many(userBonusTable),
+  affiliatePayouts: many(affiliatePayoutTable),
+  userBalances: many(userBalanceTable),
+  deposits: many(depositTable),
+  transactions: many(transactionLogTable),
+  withdrawals: many(withdrawalTable),
+  jackpots: many(jackpotTable),
 }));
 
 // Session Relations (Many-to-One)
@@ -42,6 +43,7 @@ export const sessionRelations = relations(sessionTable, ({ one, many }) => ({
 export const operatorRelations = relations(operatorTable, ({ many }) => ({
   transactions: many(transactionLogTable),
   games: many(gameTable),
+  users: many(userTable),
 }));
 
 // Transaction Relations (Many-to-One/One-to-One)

@@ -4,8 +4,9 @@ import
   userBalanceTable,
   userBonusTable,
   type UserBalance,
-  type UserBalanceSelect,
+  type UserBalanceSelect
 } from "@/libs/database/schema";
+import { operatorTable } from "@/libs/database/schema/game";
 import { configurationManager } from "@/shared/config";
 import { and, asc, eq, sql, sum } from "drizzle-orm";
 import { z } from "zod";
@@ -441,28 +442,59 @@ export async function handleDeposit(
   const settings = configurationManager.getConfiguration();
 
   const { userId, amount } = DepositSchema.parse(input);
-  const balance = await getOrCreateBalance(userId);
 
-  const depositWROwed = amount * settings.depositWRMultiplier;
+  // Use a transaction to ensure data consistency
+  return await db.transaction(async (tx) =>
+  {
+    // First, get the default operator (The House)
+    const operator = await tx.query.operatorTable.findFirst({
+      where: eq(operatorTable.name, "The House"),
+    });
 
-  const updatedBalances = await db
-    .update(userBalanceTable)
-    .set({
-      realBalance: sql`${userBalanceTable.realBalance} + ${amount}`,
-      totalDeposited: sql`${userBalanceTable.totalDeposited} + ${amount}`,
-      depositWrRemaining: sql`${userBalanceTable.depositWrRemaining} + ${depositWROwed}`,
-      // updatedAt: new Date(),
-    })
-    .where(eq(userBalanceTable.userId, userId))
-    .returning();
+    if (!operator) {
+      throw new Error("Default operator 'The House' not found");
+    }
 
-  if (!updatedBalances || updatedBalances.length === 0) {
-    throw new Error("Failed to update balance after deposit");
-  }
+    // Check if operator has sufficient balance
+    const currentOperatorBalance = Number(operator.balance);
+    if (currentOperatorBalance < amount) {
+      throw new Error(`Insufficient operator balance. Required: ${amount}, Available: ${currentOperatorBalance}`);
+    }
 
-  const updatedBalance = updatedBalances[0];
-  if (!updatedBalance) throw new Error(" no balance found");
-  return updatedBalance;
+    // Deduct the deposit amount from operator's balance
+    await tx
+      .update(operatorTable)
+      .set({
+        balance: sql`${operatorTable.balance} - ${amount}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(operatorTable.id, operator.id));
+
+    // Ensure user balance exists
+    const balance = await getOrCreateBalance(userId);
+    const depositWROwed = amount * settings.depositWrMultiplier;
+
+    // Update user's balance
+    const updatedBalances = await tx
+      .update(userBalanceTable)
+      .set({
+        realBalance: sql`${userBalanceTable.realBalance} + ${amount}`,
+        totalDeposited: sql`${userBalanceTable.totalDeposited} + ${amount}`,
+        depositWrRemaining: sql`${userBalanceTable.depositWrRemaining} + ${depositWROwed}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(userBalanceTable.userId, userId))
+      .returning();
+
+    if (!updatedBalances || updatedBalances.length === 0) {
+      throw new Error("Failed to update balance after deposit");
+    }
+
+    const updatedBalance = updatedBalances[0];
+    if (!updatedBalance) throw new Error(" no balance found");
+
+    return updatedBalance;
+  });
 }
 
 /**
@@ -648,8 +680,6 @@ export async function checkBalance(
   if (!playerBalance) {
     return { sufficient: false, balanceType: "real", availableAmount: 0 };
   }
-  console.log(playerBalance);
-  console.log(+playerBalance.bonusBalance);
   // Check real balance first (preferred)
   console.log(
     "playerBalance.realBalance + playerBalance.bonusBalance: ",
@@ -780,7 +810,7 @@ async function creditToBalance(
         newBalance = Math.floor(bonusBalance + amount);
         wrOwed = Math.floor(
           bonusWRRemaining +
-          amount * settings.wageringConfig.defaultWageringMultiplier
+          amount * ((settings.wageringConfig as any)?.defaultWageringMultiplier || 30)
         );
         updateField = { bonusBalance: newBalance, bonusWRRemaining: wrOwed };
       }

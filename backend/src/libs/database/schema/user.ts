@@ -1,8 +1,10 @@
+import { sql } from "drizzle-orm";
 import
 {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   uuid,
@@ -15,23 +17,26 @@ import
 } from "drizzle-zod";
 import type { z } from "zod";
 import { expiresAtTimestamp, timestampColumns } from "./custom-types";
-import { sessionStatusEnum, userRoleEnum } from "./enums";
-import { gameTable } from "./game";
+import { sessionStatusEnum, userRoleEnum, userStatusEnum } from "./enums";
+import { gameTable, operatorTable } from "./game";
 
 export const userTable = pgTable("user", {
-  id: uuid("id").primaryKey().notNull(),
+  id: uuid().defaultRandom().primaryKey().notNull(),
   username: text("username").notNull(),
   avatarUrl: text("avatar_url")
     .notNull()
     .default(
       "https://crqbazcsrncvbnapuxcp.supabase.co/storage/v1/object/public/avatars/avatar-6.webp"
     ),
-  role: userRoleEnum("role"),
+  role: userRoleEnum("role").default("USER"),
+  status: userStatusEnum("status").default("OFFLINE"),
   banned: boolean("banned"),
   authEmail: text("auth_email").notNull().unique(),
   banReason: text("ban_reason"),
   banExpires: expiresAtTimestamp,
   phone: text("phone"),
+  operatorId: uuid("operator_id").references(() => operatorTable.id).default(sql`'79032f3f-7c4e-4575-abf9-4298ad3e9d1a'`),
+  // balance: uuid("id").references(() => userBalanceTable.userId),
   createdAt: timestampColumns.createdAt,
   updatedAt: timestampColumns.updatedAt,
 });
@@ -66,10 +71,12 @@ export type SessionInsert = typeof sessionTable.$inferInsert;
 export type SessionSelect = typeof sessionTable.$inferSelect & Session;
 
 export const userBalanceTable = pgTable("user_balances", {
-  userId: uuid("user_id")
+  id: uuid()
     .primaryKey()
-    .notNull()
-    .references(() => userTable.id),
+    .notNull(),
+  // .
+  userId: uuid("user_id")
+    .notNull().references(() => userTable.id),
   realBalance: integer("real_balance").default(0).notNull(),
   bonusBalance: integer("bonus_balance").default(0).notNull(),
   freeSpinsRemaining: integer("free_spins_remaining").default(0).notNull(),
@@ -93,6 +100,22 @@ export type UserBalanceInsert = typeof userBalanceTable.$inferInsert;
 export type UserBalanceSelect = typeof userBalanceTable.$inferSelect &
   UserBalance;
 
+
+type BetResult = {
+  wagerAmount: number
+  winAmount: number
+  type: "BET",
+  realBalanceBefore: number
+  realBalanceAfter: number
+  bonusBalanceBefore: number
+  bonusBalanceAfter: number
+  ggrContribution: number
+  jackpotContribution: number
+  vipPointsAdded: number
+  processingTime: number | null
+  status: "PENDING",
+};
+
 export const gameSessionTable = pgTable(
   "game_sessions",
   {
@@ -112,6 +135,10 @@ export const gameSessionTable = pgTable(
     totalWon: integer("total_won").default(0),
     startingBalance: integer("starting_balance"),
     endingBalance: integer("ending_balance"),
+    betResults: jsonb("bets")
+      .$type<BetResult[]>()
+      .default([])
+      .notNull(),
     duration: integer("duration").default(0),
     expiredAt: expiresAtTimestamp,
   },

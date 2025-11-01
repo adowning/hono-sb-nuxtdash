@@ -5,12 +5,14 @@ import { env } from "hono/adapter";
 import { setCookie } from "hono/cookie";
 
 declare module "hono" {
-  interface ContextVariableMap {
+  interface ContextVariableMap
+  {
     supabase: SupabaseClient;
   }
 }
 
-export const getSupabase = (c: Context) => {
+export const getSupabase = (c: Context) =>
+{
   return c.get("supabase");
 };
 
@@ -19,8 +21,10 @@ type SupabaseEnv = {
   SUPABASE_PUBLISHABLE_KEY: string;
 };
 
-export const supabase = (): MiddlewareHandler => {
-  return async (c, next) => {
+export const supabase = (): MiddlewareHandler =>
+{
+  return async (c, next) =>
+  {
     const supabaseEnv = env<SupabaseEnv>(c);
     const supabaseUrl = supabaseEnv.SUPABASE_URL;
     const supabaseAnonKey = supabaseEnv.SUPABASE_PUBLISHABLE_KEY;
@@ -35,14 +39,22 @@ export const supabase = (): MiddlewareHandler => {
     console.log;
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
-        getAll() {
+        getAll()
+        {
           const cookietokens = parseCookieHeader(c.req.header("Cookie") ?? "");
           const bearerTokens = c.req
             .header("Authorization")
             ?.split("Bearer ")[1];
-          return [bearerTokens];
+          return [
+            ...cookietokens.map(token => ({
+              name: token.name,
+              value: token.value || ''
+            })),
+            ...(bearerTokens ? [{ name: 'access_token', value: bearerTokens }] : [])
+          ];
         },
-        setAll(cookiesToSet: { name: any; value: any; options: any }[]) {
+        setAll(cookiesToSet: { name: any; value: any; options: any }[])
+        {
           cookiesToSet.forEach(({ name, value, options }) =>
             setCookie(c, name, value, options)
           );

@@ -26,14 +26,19 @@ import
 } from "./enums";
 
 export const operatorTable = pgTable("operators", {
-  id: uuid("id").primaryKey().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   createdAt: timestampColumns.createdAt,
   updatedAt: timestampColumns.updatedAt,
   updatedBy: text("updated_by").default("system").notNull(),
   version: integer("version").default(1).notNull(),
   balance: integer("balance").default(100000).notNull(),
+  slotsBalance: integer("slots_balance").default(100000).notNull(),
+  arcadeBalance: integer("arcade_balance").default(100000).notNull(),
+  currentFloat: integer("current_float").default(0).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   name: text("name").notNull(),
+  ownerId: text("owner_id").default("system").notNull(),
+  products: jsonb("products"),
 });
 export const operatorsNameUnique = unique("operators_name_unique").on(
   operatorTable.name

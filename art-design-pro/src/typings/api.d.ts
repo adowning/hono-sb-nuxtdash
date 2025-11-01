@@ -5,24 +5,28 @@
  * 在.vue文件使用会报错，需要在 eslint.config.mjs 中配置 globals: { Api: 'readonly' }
  */
 
-declare namespace Api {
+declare namespace Api
+{
   /** 通用类型 */
-  namespace Common {
+  namespace Common
+  {
     /** 分页参数 */
-    interface PaginationParams {
+    interface PaginationParams
+    {
       /** 当前页码 */
-      current: number
+      page: number
       /** 每页条数 */
-      size: number
+      pageSize: number
       /** 总条数 */
       total: number
     }
 
     /** 通用搜索参数 */
-    type CommonSearchParams = Pick<PaginationParams, 'current' | 'size'>
+    type CommonSearchParams = Pick<PaginationParams, 'page' | 'perPage'>
 
     /** 分页响应基础结构 */
-    interface PaginatedResponse<T = any> {
+    interface PaginatedResponse<T = any>
+    {
       records: T[]
       current: number
       size: number
@@ -34,21 +38,25 @@ declare namespace Api {
   }
 
   /** 认证类型 */
-  namespace Auth {
+  namespace Auth
+  {
     /** 登录参数 */
-    interface LoginParams {
+    interface LoginParams
+    {
       userName: string
       password: string
     }
 
     /** 登录响应 */
-    interface LoginResponse {
+    interface LoginResponse
+    {
       token: string
       refreshToken: string
     }
 
     /** 用户信息 */
-    interface UserInfo {
+    interface UserInfo
+    {
       buttons: string[]
       roles: string[]
       userId: number
@@ -59,38 +67,54 @@ declare namespace Api {
   }
 
   /** 系统管理类型 */
-  namespace SystemManage {
+  namespace SystemManage
+  {
     /** 用户列表 */
     type UserList = Api.Common.PaginatedResponse<UserListItem>
 
     /** 用户列表项 */
-    interface UserListItem {
+    interface UserListItem
+    {
       id: number
-      avatar: string
+      avatarUrl: string
       status: string
-      userName: string
-      userGender: string
-      nickName: string
-      userPhone: string
-      userEmail: string
-      userRoles: string[]
-      createBy: string
-      createTime: string
-      updateBy: string
-      updateTime: string
+      username: string
+      userBalances: {
+        "id": string,
+        "userId": string,
+        "realBalance": number,
+        "bonusBalance": number,
+        "freeSpinsRemaining": number,
+        "depositWrRemaining": number,
+        "bonusWrRemaining": number,
+        "totalDeposited": number,
+        "totalWithdrawn": number,
+        "totalWagered": number,
+        "totalWon": number,
+        "totalBonusGranted": number,
+        "totalFreeSpinWins": number,
+        "createdAt": Date,
+        "updatedAt": Date | null
+      }
+      role: string,
+      status: string,
+      banned: boolean,
+      createdAt: string
+      updatedAt: string
     }
 
     /** 用户搜索参数 */
     type UserSearchParams = Partial<
       Pick<UserListItem, 'id' | 'userName' | 'userGender' | 'userPhone' | 'userEmail' | 'status'> &
-        Api.Common.CommonSearchParams
+      Api.Common.CommonSearchParams
     >
 
     /** 角色列表 */
     type RoleList = Api.Common.PaginatedResponse<RoleListItem>
 
     /** 角色列表项 */
-    interface RoleListItem {
+    interface RoleListItem
+    {
       roleId: number
       roleName: string
       roleCode: string
@@ -102,7 +126,7 @@ declare namespace Api {
     /** 角色搜索参数 */
     type RoleSearchParams = Partial<
       Pick<RoleListItem, 'roleId' | 'roleName' | 'roleCode' | 'description' | 'enabled'> &
-        Api.Common.CommonSearchParams
+      Api.Common.CommonSearchParams
     >
   }
 }

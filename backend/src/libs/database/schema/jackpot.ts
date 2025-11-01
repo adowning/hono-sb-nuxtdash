@@ -1,23 +1,23 @@
-import { timestampColumns } from "./custom-types";
-import {
+import
+{
+  integer,
+  jsonb,
+  pgTable,
+  real,
+  text,
+  uuid
+} from "drizzle-orm/pg-core";
+import
+{
+  createInsertSchema,
   createSelectSchema,
   createUpdateSchema,
-  createInsertSchema,
 } from "drizzle-zod";
 import type { z } from "zod";
-import {
-  pgTable,
-  text,
-  integer,
-  real,
-  uuid,
-  jsonb,
-  unique,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { customTimestamp } from "./custom";
+import { timestampColumns } from "./custom-types";
 import { jackpotGroupEnum } from "./enums";
 import { userTable } from "./user";
-import { customTimestamp } from "./custom";
 
 type JackpotContribution = {
   wagerAmount: number;
@@ -60,6 +60,10 @@ export const jackpotTable = pgTable("jackpots", {
     .$type<JackpotContribution[]>()
     .default([])
     .notNull(),
+  // Concurrency control fields
+  version: integer("version").default(0).notNull(), // Optimistic locking version
+  lockHolder: text("lock_holder"), // Who holds the current lock (for debugging)
+  lastModifiedAt: customTimestamp("last_modified_at", { precision: 3 }), // For timestamp-based locking
   createdAt: timestampColumns.createdAt,
   updatedAt: timestampColumns.updatedAt,
 });

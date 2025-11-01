@@ -197,7 +197,7 @@ export async function processDepositConfirmation(
       const playerBalance = await getDetailedBalance(pendingDeposit.userId);
 
       if (!playerBalance) {
-        throw new Error("User wallet not found");
+        throw new Error("User balance not found");
       }
 
       let creditResult: UserBalanceSelect = await handleDeposit({

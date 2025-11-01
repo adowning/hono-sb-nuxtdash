@@ -5,19 +5,21 @@ import { dashboardConfig } from "./dashboard";
  * Mock Configuration Manager
  * Provides default settings since the real one wasn't provided.
  */
-class ConfigurationManager {
+class ConfigurationManager
+{
   private settings: PlatformSetting;
 
-  constructor() {
+  constructor()
+  {
     // Load default settings
     this.settings = {
-      id: "default-settings",
+      id: "00e78117-692f-45df-958f-10a5855141d5",
       name: "Default Settings",
       default: true,
       referralCodeCount: 5,
-      depositWRMultiplier: 1, // 1x deposit wagering
-      bonusWRMultiplier: 30, // 30x bonus wagering
-      freeSpinWRMultiplier: 30, // 30x free spin win wagering
+      depositWrMultiplier: 1, // 1x deposit wagering
+      bonusWrMultiplier: 30, // 30x bonus wagering
+      freeSpinWrMultiplier: 30, // 30x free spin win wagering
       avgFreeSpinWinValue: 15, // 15 cents avg free spin win
       referralCommissionRate: 0.1,
       rates: { master: 0.1, affiliate: 0.7, subaffiliate: 0.3 },
@@ -51,7 +53,8 @@ class ConfigurationManager {
     };
   }
 
-  getConfiguration(): Settings {
+  getConfiguration(): PlatformSetting
+  {
     // In a real app, this might fetch from DB or cache
     return this.settings;
   }

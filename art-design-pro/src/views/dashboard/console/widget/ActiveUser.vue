@@ -27,10 +27,10 @@
 
 <script setup lang="ts">
   const list = [
-    { name: '总用户量', num: '32k' },
-    { name: '总访问量', num: '128k' },
-    { name: '日访问量', num: '1.2k' },
-    { name: '周同比', num: '+5%' }
+    { name: 'Total number of users', num: '32k' },
+    { name: 'Total visits', num: '128k' },
+    { name: 'Daily visits', num: '1.2k' },
+    { name: 'weekly year-on-year', num: '+5%' }
   ]
 </script>
 

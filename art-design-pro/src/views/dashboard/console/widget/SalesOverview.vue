@@ -2,8 +2,8 @@
   <div class="card art-custom-card">
     <div class="card-header">
       <div class="title">
-        <h4 class="box-title">访问量</h4>
-        <p class="subtitle">今年增长<span class="text-success">+15%</span></p>
+        <h4 class="box-title">Visits</h4>
+        <p class="subtitle">growth this year<span class="text-success">+15%</span></p>
       </div>
     </div>
     <ArtLineChart
@@ -20,18 +20,18 @@
 <script setup lang="ts">
   const data = [50, 25, 40, 20, 70, 35, 65, 30, 35, 20, 40, 44]
   const xAxisData = [
-    '1月',
-    '2月',
-    '3月',
-    '4月',
-    '5月',
-    '6月',
-    '7月',
-    '8月',
-    '9月',
-    '10月',
-    '11月',
-    '12月'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
   ]
 </script>
 

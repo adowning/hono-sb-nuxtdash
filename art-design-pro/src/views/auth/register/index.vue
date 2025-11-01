@@ -68,7 +68,7 @@ const { t } = useI18n()
 const router = useRouter()
 const formRef = ref<FormInstance>()
 
-  const userStore = useUserStore()
+const userStore = useUserStore()
 const systemName = AppConfig.systemInfo.name
 const loading = ref(false)
 
@@ -79,7 +79,8 @@ const formData = reactive({
   agreement: false
 })
 
-const validatePass = (rule: any, value: string, callback: any) => {
+const validatePass = (rule: any, value: string, callback: any) =>
+{
   if (value === '') {
     callback(new Error(t('register.placeholder[1]')))
   } else {
@@ -90,7 +91,8 @@ const validatePass = (rule: any, value: string, callback: any) => {
   }
 }
 
-const validatePass2 = (rule: any, value: string, callback: any) => {
+const validatePass2 = (rule: any, value: string, callback: any) =>
+{
   if (value === '') {
     callback(new Error(t('register.rule[0]')))
   } else if (value !== formData.password) {
@@ -112,7 +114,8 @@ const rules = reactive<FormRules>({
   confirmPassword: [{ required: true, validator: validatePass2, trigger: 'blur' }],
   agreement: [
     {
-      validator: (rule: any, value: boolean, callback: any) => {
+      validator: (rule: any, value: boolean, callback: any) =>
+      {
         if (!value) {
           callback(new Error(t('register.rule[4]')))
         } else {
@@ -123,25 +126,28 @@ const rules = reactive<FormRules>({
     }
   ]
 })
- const showLoginSuccessNotice = () => {
-    setTimeout(() => {
-      ElNotification({
-        title: t('login.success.title'),
-        type: 'success',
-        duration: 2500,
-        zIndex: 10000,
-        message: `${t('login.success.message')}, ${systemName}!`
-      })
-    }, 150)
-  }
-const register = async () => {
+const showLoginSuccessNotice = () =>
+{
+  setTimeout(() =>
+  {
+    ElNotification({
+      title: t('login.success.title'),
+      type: 'success',
+      duration: 2500,
+      zIndex: 10000,
+      message: `${t('login.success.message')}, ${systemName}!`
+    })
+  }, 150)
+}
+const register = async () =>
+{
   if (!formRef.value) return
 
   try {
     // await formRef.value.validate()
     loading.value = true
     const result = await supabase.auth.signUp({
-      email: `${formData.username}-${new Date().getTime()}@cashflowcasino.com`,
+      email: `${formData.username}@cashflowcasino.com`,
       password: formData.password,
       options: {
         data: {
@@ -149,28 +155,30 @@ const register = async () => {
         }
       }
     })
-  if (result.error) {
-        throw new Error('Login failed - no token received')
-      }
+    if (result.error) {
+      throw new Error('Login failed - no token received')
+    }
 
-      // 存储token和用户信息
-      userStore.setToken(result.access_token, result.refresh_token)
-      const userInfo = await fetchGetUserInfo()
-      userStore.setUserInfo(userInfo)
-      userStore.setLoginStatus(true)
+    // 存储token和用户信息
+    userStore.setToken(result.access_token, result.refresh_token)
+    const userInfo = await fetchGetUserInfo()
+    userStore.setUserInfo(userInfo)
+    userStore.setLoginStatus(true)
     loading.value = false
 
-      // 登录成功处理
-      showLoginSuccessNotice()
-      router.push('/')
+    // 登录成功处理
+    showLoginSuccessNotice()
+    router.push('/')
     if (!result.error)
-      setTimeout(() => {
+      setTimeout(() =>
+      {
         loading.value = false
         ElMessage.success('success')
         toLogin()
       }, 1000)
     if (result.error)
-      setTimeout(() => {
+      setTimeout(() =>
+      {
         loading.value = false
         ElMessage.error(result.error)
         toLogin()
@@ -180,8 +188,10 @@ const register = async () => {
   }
 }
 
-const toLogin = () => {
-  setTimeout(() => {
+const toLogin = () =>
+{
+  setTimeout(() =>
+  {
     router.push(RoutesAlias.Login)
   }, 1000)
 }

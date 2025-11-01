@@ -78,7 +78,9 @@
 
   // Theme background color
   --art-bg-color: #fafbfc; // 最底部背景颜色
-  --art-main-bg-color: #ffffff;
+  // --art-main-bg-color: #ffffff;
+  --art-main-bg-color: #060f21 !important;
+
 }
 
 // Dark 主题变量
@@ -160,7 +162,7 @@ html.dark {
 
   // Theme background color
   --art-bg-color: #020518;
-  --art-main-bg-color: #060f21;
+  --art-main-bg-color: #060f21 !important;
 }
 
 // CSS 全局变量

@@ -1,18 +1,20 @@
-import { keepPreviousData, queryOptions } from '@tanstack/vue-query'
-import { hc } from 'hono/client'
+import { keepPreviousData, queryOptions } from '@tanstack/vue-query';
+import { hc } from 'hono/client';
 import type {
   AppType,
   //   ZGetUserSchema,
   //   TGetUserType,
-  TGetAllUsersType
-} from '../../../backend/src/shared/types'
+  TGetAllUsersType,
+  UserWithBalance
+} from '../../../backend/src/shared/types';
 
 // type GetMeReturnType = AsyncReturnType<typeof getMe>
 
 type GetMeDataType = Awaited<ReturnType<typeof getMe>> // This gives us Api.Auth.UserInfo
 
 // Helper function to get Supabase auth token
-const getSupabaseAuthHeaders = () => {
+export const getSupabaseAuthHeaders = () =>
+{
   let _token = localStorage.getItem('sb-crqbazcsrncvbnapuxcp-auth-token')
   let token
   if (_token) token = JSON.parse(_token)
@@ -20,19 +22,20 @@ const getSupabaseAuthHeaders = () => {
 
   return access_token
     ? {
-        Authorization: `Bearer ${access_token}`
-      }
-    : {}
+      Authorization: `Bearer ${access_token}`
+    }
+    : { Authorization: `Bearer ` }
 }
 
 // Create base client without auth headers
-const client = hc<AppType>('/api')
+export const client = hc<AppType>('/api')
 
 // Helper function to make authenticated requests
 const makeAuthenticatedRequest = async <T>(
   requestFn: () => Promise<Response>,
   headers: Record<string, string> = {}
-): Promise<T> => {
+): Promise<T> =>
+{
   const authHeaders = getSupabaseAuthHeaders()
 
   // If we have an auth token, make the request with additional headers
@@ -57,24 +60,36 @@ const makeAuthenticatedRequest = async <T>(
 }
 
 // eslint-disable-next-line prettier/prettier
-export const getAllUsers = async ({ query, page, perPage }: TGetAllUsersType) => {
+export const getAllUsersWithBalance = async ({ query, page, perPage }: TGetAllUsersType): Promise<UserWithBalance[]> =>
+{
   const authHeaders = getSupabaseAuthHeaders()
-
-  const res = await client.api.me.$get({
+  let _token = localStorage.getItem('sb-crqbazcsrncvbnapuxcp-auth-token')
+  let token
+  if (_token) token = JSON.parse(_token)
+  console.log(token)
+  token = token.access_token
+  const refresh_token = token.refresh_token
+  console.log(token)
+  console.log(refresh_token)
+  console.log(authHeaders)
+  const res = await client.api.users.balances.$get({
     query: {
       query,
       page: String(page),
       perPage: String(perPage)
-    },
-    headers: authHeaders // Add auth headers to the request
-  })
+    }
+  },
+    {
+      headers: { Authorization: `Bearer ${token}`, refresh_token: refresh_token }
+    }
+  )
 
   if (!res.ok) {
     throw new Error('Failed to fetch courses')
   }
 
   const users = await res.json()
-  return users
+  return users as unknown as UserWithBalance[]
 }
 
 export const getAllUsersQueryOptions = ({ query, page, perPage }: TGetAllUsersType) =>
@@ -86,7 +101,8 @@ export const getAllUsersQueryOptions = ({ query, page, perPage }: TGetAllUsersTy
   })
 
 // eslint-disable-next-line prettier/prettier
-export const getUserById = async (id: string) => {
+export const getUserById = async (id: string) =>
+{
   const authHeaders = getSupabaseAuthHeaders()
 
   const res = await client.api.me.$get({
@@ -105,7 +121,8 @@ export const getUserById = async (id: string) => {
 }
 
 // eslint-disable-next-line prettier/prettier
-export const getMe = async () => {
+export const getMe = async () =>
+{
   const authHeaders = getSupabaseAuthHeaders()
   let _token = localStorage.getItem('sb-crqbazcsrncvbnapuxcp-auth-token')
   let token
@@ -130,4 +147,5 @@ export const getMe = async () => {
   const data = await res.json()
   return data
 }
-export type { GetMeDataType }
+export type { GetMeDataType };
+

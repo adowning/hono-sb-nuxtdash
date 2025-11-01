@@ -2,11 +2,11 @@
 	"folders": [
 		{
 			"name": "backend",
-			"path": "./backend/src"
+			"path": "./backend"
 		},
 		{
 			"name": "dashboard",
-			"path": "./art-design-pro/src"
+			"path": "./art-design-pro"
 		}
 	]
 }

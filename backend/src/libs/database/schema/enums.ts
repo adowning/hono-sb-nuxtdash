@@ -73,6 +73,10 @@ export const transactionTypeEnum = pgEnum("transaction_type_enum", [
   "CASHBACK",
   "AFFILIATE_PAYOUT",
   "BONUS",
+  "JACKPOT_CONTRIBUTION",
+  "JACKPOT_WIN",
+  "JACKPOT_CONFIG_CHANGE",
+  "HEALTH_CHECK",
 ]);
 export const jackpotTypeEnum = pgEnum("type_of_jackpot_enum", [
   "MINOR",
@@ -80,8 +84,8 @@ export const jackpotTypeEnum = pgEnum("type_of_jackpot_enum", [
   "GRAND",
 ]);
 export const userStatusEnum = pgEnum("user_status_enum", [
-  "ACTIVE",
-  "INACTIVE",
+  "ONLINE",
+  "OFFLINE",
   "BANNED",
   "PENDING",
 ]);

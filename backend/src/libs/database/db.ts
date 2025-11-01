@@ -4,8 +4,10 @@ import { drizzle } from "drizzle-orm/bun-sql";
 import * as schema from "./schema";
 
 const client = new SQL(
-  "postgresql://postgres.crqbazcsrncvbnapuxcp:crqbazcsrncvbnapuxcp@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
+  // process.env.DATABASE_URL || "postgresql://postgres.crqbazcsrncvbnapuxcp:crqbazcsrncvbnapuxcp@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
+  process.env.DATABASE_URL || "postgresql://user:asdfasdf@localhost:5439/sugarlips"
 );
+
 export const db = drizzle({ client, schema });
 
 function snakeToCamelCase(str: string): string
@@ -117,14 +119,6 @@ export async function findFirstActiveGameSessionNative(
   }
 }
 
-const prepared = db.query.userTable.findMany({
-  where: ((userTable, { eq }) => eq(userTable.id, sql.placeholder('id'))),
-  with: {
-    balance: true
-    // where: ((userTable, { eq }) => eq(userTable.id, placeholder('pid'))),
-    // },
-  },
-}).prepare('query_name');
 
 /**
  * Recursively removes all fields with null values from an object.
@@ -159,6 +153,15 @@ function removeNullValues(obj: any): any
   return cleaned;
 }
 
+const prepared = db.query.userTable.findMany({
+  where: ((userTable, { eq }) => eq(userTable.id, sql.placeholder('id'))),
+  with: {
+    userBalances: true
+    // where: ((userTable, { eq }) => eq(userTable.id, placeholder('pid'))),
+    // },
+  },
+}).prepare('query_name');
+
 export async function getUserWithBalance(id: string)
 {
   try {
@@ -176,3 +179,21 @@ export async function getUserWithBalance(id: string)
     return null;
   }
 }
+
+export const updateWithAllGameSessionsToCompleted = async () =>
+{
+  try {
+    const result = await client`
+      UPDATE "game_sessions"
+      SET "status" = ${'COMPLETED' as const},
+          "is_active" = ${false as const},
+          "updated_at" = NOW()
+    `;
+
+    console.log(`Updated ${result.length} game sessions to COMPLETED status`);
+    return result;
+  } catch (error) {
+    console.error('Error updating game sessions:', error);
+    throw error;
+  }
+};

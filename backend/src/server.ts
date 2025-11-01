@@ -1,5 +1,6 @@
 import { showRoutes } from "hono/dev";
 import app from "./app";
+import { updateWithAllGameSessionsToCompleted } from "./libs/database/db";
 import { startManufacturedGameplay } from "./modules/gameplay/bot.service";
 
 const port = 3000;
@@ -21,4 +22,5 @@ const server = Bun.serve({
 });
 showRoutes(app);
 console.log(`Server is running on port - ${server.port}`);
+await updateWithAllGameSessionsToCompleted()
 startManufacturedGameplay()

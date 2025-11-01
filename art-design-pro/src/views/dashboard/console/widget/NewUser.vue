@@ -64,8 +64,8 @@
 
   const tableData = reactive([
     {
-      username: '中小鱼',
-      province: '北京',
+      username: 'medium and small fish',
+      province: 'Beijing',
       sex: 0,
       age: 22,
       percentage: 60,
@@ -74,8 +74,8 @@
       avatar: avatar1
     },
     {
-      username: '何小荷',
-      province: '深圳',
+      username: 'He Xiaohe',
+      province: 'Shenzhen',
       sex: 1,
       age: 21,
       percentage: 20,
@@ -84,8 +84,8 @@
       avatar: avatar2
     },
     {
-      username: '誶誶淰',
-      province: '上海',
+      username: '谇谇淰',
+      province: 'Shanghai',
       sex: 1,
       age: 23,
       percentage: 60,
@@ -94,8 +94,8 @@
       avatar: avatar3
     },
     {
-      username: '发呆草',
-      province: '长沙',
+      username: 'Daicao',
+      province: 'Changsha',
       sex: 0,
       age: 28,
       percentage: 50,
@@ -104,8 +104,8 @@
       avatar: avatar4
     },
     {
-      username: '甜筒',
-      province: '浙江',
+      username: 'Sweet Cone',
+      province: 'Zhejiang',
       sex: 1,
       age: 26,
       percentage: 70,
@@ -114,8 +114,8 @@
       avatar: avatar5
     },
     {
-      username: '冷月呆呆',
-      province: '湖北',
+      username: 'Leng Yue Dadai',
+      province: 'Hubei',
       sex: 1,
       age: 25,
       percentage: 90,
@@ -124,7 +124,7 @@
       avatar: avatar6
     }
   ])
-
+    
   onMounted(() => {
     addAnimation()
   })

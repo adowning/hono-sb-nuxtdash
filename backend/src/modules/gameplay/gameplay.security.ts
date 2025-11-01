@@ -1,9 +1,10 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <> */
 
 import { db } from "@/libs/database/db";
-import {
-  userTable,
+import
+{
   depositTable,
+  userTable,
   withdrawalTable,
   type User,
 } from "@/libs/database/schema";
@@ -15,7 +16,8 @@ import { and, eq, gte, sql } from "drizzle-orm";
  * Implements velocity checks, suspicious pattern detection, and risk scoring
  */
 
-export interface FraudCheck {
+export interface FraudCheck
+{
   userId: string;
   riskScore: number; // 0-100, higher = more risky
   flags: string[];
@@ -23,7 +25,8 @@ export interface FraudCheck {
   recommendation: "approve" | "review" | "reject";
 }
 
-export interface VelocityCheck {
+export interface VelocityCheck
+{
   checkType: "deposit" | "withdrawal";
   timeWindow: number; // minutes
   maxAmount: number;
@@ -33,7 +36,8 @@ export interface VelocityCheck {
   exceeded: boolean;
 }
 
-export interface SecurityAlert {
+export interface SecurityAlert
+{
   type: "velocity" | "suspicious_pattern" | "high_risk" | "duplicate";
   severity: "low" | "medium" | "high" | "critical";
   userId: string;
@@ -45,7 +49,8 @@ export interface SecurityAlert {
 /**
  * Perform comprehensive fraud check on user
  */
-export async function performFraudCheck(userId: string): Promise<FraudCheck> {
+export async function performFraudCheck(userId: string): Promise<FraudCheck>
+{
   try {
     const user = (await db.query.userTable.findFirst({
       where: eq(userTable.id, userId),
@@ -124,7 +129,8 @@ export async function performFraudCheck(userId: string): Promise<FraudCheck> {
 async function checkRecentActivity(userId: string): Promise<{
   flags: string[];
   riskScore: number;
-}> {
+}>
+{
   const flags: string[] = [];
   let riskScore = 0;
 
@@ -138,8 +144,8 @@ async function checkRecentActivity(userId: string): Promise<{
         eq(depositTable.status, "COMPLETED"),
         gte(
           depositTable.createdAt,
-          new Date(Date.now() - 60 * 60 * 1000).toISOString()
-        ) // Manually convert to string
+          new Date(Date.now() - 60 * 60 * 1000)
+        )
       ),
     })) as Deposit[];
 
@@ -148,7 +154,7 @@ async function checkRecentActivity(userId: string): Promise<{
       where: and(
         eq(withdrawalTable.userId, userId),
         eq(withdrawalTable.status, "COMPLETED"),
-        gte(withdrawalTable.createdAt, last24h.toISOString())
+        gte(withdrawalTable.createdAt, last24h)
       ),
     })) as Withdrawal[];
 
@@ -176,7 +182,8 @@ async function checkRecentActivity(userId: string): Promise<{
         createdAt: typeof item.createdAt === 'string' ? new Date(item.createdAt) : item.createdAt
       }))
       .sort(
-        (a, b) => {
+        (a, b) =>
+        {
           const aTime = a.createdAt?.getTime() || 0;
           const bTime = b.createdAt?.getTime() || 0;
           return bTime - aTime;
@@ -189,19 +196,20 @@ async function checkRecentActivity(userId: string): Promise<{
       hasRecentActivity: recentActivity.length >= 4,
       firstActivity: recentActivity[0]
         ? {
-            id: recentActivity[0].id,
-            createdAt: recentActivity[0].createdAt,
-            amount: recentActivity[0].amount,
-          }
+          id: recentActivity[0].id,
+          createdAt: recentActivity[0].createdAt,
+          amount: recentActivity[0].amount,
+        }
         : null,
-      lastActivity: (() => {
+      lastActivity: (() =>
+      {
         const last = recentActivity[recentActivity.length - 1];
         return last
           ? {
-              id: last.id || "",
-              createdAt: last.createdAt || new Date(),
-              amount: last.amount || 0,
-            }
+            id: last.id || "",
+            createdAt: last.createdAt || new Date(),
+            amount: last.amount || 0,
+          }
           : null;
       })(),
     });
@@ -245,7 +253,8 @@ async function checkRecentActivity(userId: string): Promise<{
 async function checkVelocityPatterns(userId: string): Promise<{
   flags: string[];
   riskScore: number;
-}> {
+}>
+{
   const flags: string[] = [];
   let riskScore = 0;
 
@@ -254,8 +263,7 @@ async function checkVelocityPatterns(userId: string): Promise<{
     const hourlyDepositCheck = await checkDepositVelocity(userId, 60); // 1 hour
     if (hourlyDepositCheck.exceeded) {
       flags.push(
-        `Hourly deposit limit exceeded: ${
-          hourlyDepositCheck.currentAmount / 100
+        `Hourly deposit limit exceeded: ${hourlyDepositCheck.currentAmount / 100
         } / ${hourlyDepositCheck.maxAmount / 100}`
       );
       riskScore += 25;
@@ -265,8 +273,7 @@ async function checkVelocityPatterns(userId: string): Promise<{
     const dailyDepositCheck = await checkDepositVelocity(userId, 1440); // 24 hours
     if (dailyDepositCheck.exceeded) {
       flags.push(
-        `Daily deposit limit exceeded: ${
-          dailyDepositCheck.currentAmount / 100
+        `Daily deposit limit exceeded: ${dailyDepositCheck.currentAmount / 100
         } / ${dailyDepositCheck.maxAmount / 100}`
       );
       riskScore += 35;
@@ -276,8 +283,7 @@ async function checkVelocityPatterns(userId: string): Promise<{
     const withdrawalCheck = await checkWithdrawalVelocity(userId, 60); // 1 hour
     if (withdrawalCheck.exceeded) {
       flags.push(
-        `Hourly withdrawal limit exceeded: ${
-          withdrawalCheck.currentAmount / 100
+        `Hourly withdrawal limit exceeded: ${withdrawalCheck.currentAmount / 100
         } / ${withdrawalCheck.maxAmount / 100}`
       );
       riskScore += 30;
@@ -297,7 +303,8 @@ async function checkVelocityPatterns(userId: string): Promise<{
 async function checkDepositVelocity(
   userId: string,
   minutes: number
-): Promise<VelocityCheck> {
+): Promise<VelocityCheck>
+{
   const timeWindow = new Date(Date.now() - minutes * 60 * 1000);
 
   const recentDeposits = await db.query.depositTable.findMany({
@@ -306,8 +313,8 @@ async function checkDepositVelocity(
       eq(depositTable.status, "COMPLETED"),
       gte(
         depositTable.createdAt,
-        new Date(Date.now() - 60 * 60 * 1000).toISOString()
-      ) // Manually convert to string
+        new Date(Date.now() - 60 * 60 * 1000)
+      )
     ),
   });
 
@@ -342,14 +349,15 @@ async function checkDepositVelocity(
 async function checkWithdrawalVelocity(
   userId: string,
   minutes: number
-): Promise<VelocityCheck> {
+): Promise<VelocityCheck>
+{
   const timeWindow = new Date(Date.now() - minutes * 60 * 1000);
 
   const recentWithdrawals = await db.query.withdrawalTable.findMany({
     where: and(
       eq(withdrawalTable.userId, userId),
       eq(withdrawalTable.status, "COMPLETED"),
-      gte(withdrawalTable.createdAt, timeWindow.toISOString())
+      gte(withdrawalTable.createdAt, timeWindow)
     ),
   });
 
@@ -381,16 +389,18 @@ async function checkWithdrawalVelocity(
 /**
  * Get user-specific velocity limits based on VIP level and history
  */
-function getUserVelocityLimits(_userId: string): {
-  hourlyDeposit: number;
-  dailyDeposit: number;
-  hourlyWithdrawal: number;
-  dailyWithdrawal: number;
-  hourlyDepositCount: number;
-  dailyDepositCount: number;
-  hourlyWithdrawalCount: number;
-  dailyWithdrawalCount: number;
-} {
+function getUserVelocityLimits(_userId: string):
+  {
+    hourlyDeposit: number;
+    dailyDeposit: number;
+    hourlyWithdrawal: number;
+    dailyWithdrawal: number;
+    hourlyDepositCount: number;
+    dailyDepositCount: number;
+    hourlyWithdrawalCount: number;
+    dailyWithdrawalCount: number;
+  }
+{
   // In production, this would query user VIP level and custom limits
   // For now, using default limits that should be configurable
 
@@ -412,7 +422,8 @@ function getUserVelocityLimits(_userId: string): {
 async function checkSuspiciousPatterns(userId: string): Promise<{
   flags: string[];
   riskScore: number;
-}> {
+}>
+{
   const flags: string[] = [];
   let riskScore = 0;
 
@@ -439,8 +450,8 @@ async function checkSuspiciousPatterns(userId: string): Promise<{
         // gte(depositTable.createdAt, new Date(Date.now() - 60 * 60 * 1000)) // Last hour
         gte(
           depositTable.createdAt,
-          new Date(Date.now() - 60 * 60 * 1000).toISOString()
-        ) // Manually convert to string
+          new Date(Date.now() - 60 * 60 * 1000)
+        )
       ),
     })) as Deposit[];
 
@@ -458,7 +469,7 @@ async function checkSuspiciousPatterns(userId: string): Promise<{
         // new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
         gte(
           depositTable.createdAt,
-          new Date(Date.now() - 60 * 60 * 1000).toISOString()
+          new Date(Date.now() - 60 * 60 * 1000)
         ), // Last week
         sql`EXTRACT(HOUR FROM created_at) BETWEEN 2 AND 6` // 2 AM - 6 AM
       ),
@@ -480,7 +491,8 @@ async function checkSuspiciousPatterns(userId: string): Promise<{
 /**
  * Log security alert for monitoring
  */
-export async function logSecurityAlert(alert: SecurityAlert): Promise<void> {
+export async function logSecurityAlert(alert: SecurityAlert): Promise<void>
+{
   try {
     console.warn("Security Alert:", {
       type: alert.type,
@@ -509,7 +521,8 @@ export async function shouldBlockTransaction(
   blocked: boolean;
   reason?: string;
   alerts: SecurityAlert[];
-}> {
+}>
+{
   const alerts: SecurityAlert[] = [];
 
   try {
@@ -536,9 +549,8 @@ export async function shouldBlockTransaction(
 
       return {
         blocked: true,
-        reason: `Transaction blocked. Risk score: ${
-          fraudCheck.riskScore
-        }. Flags: ${fraudCheck.flags.join(", ")}`,
+        reason: `Transaction blocked. Risk score: ${fraudCheck.riskScore
+          }. Flags: ${fraudCheck.flags.join(", ")}`,
         alerts,
       };
     }
@@ -630,7 +642,8 @@ export async function getSecurityStatistics(_hours: number = 24): Promise<{
   alertsBySeverity: Record<string, number>;
   blockedTransactions: number;
   averageRiskScore: number;
-}> {
+}>
+{
   // In production, this would query actual security alert logs
   // For now, returning placeholder data
 
@@ -654,7 +667,8 @@ export async function addTrustedUser(
 ): Promise<{
   success: boolean;
   error?: string;
-}> {
+}>
+{
   try {
     console.log(
       `Admin ${adminId} added trusted user ${userId} for ${durationHours} hours. Reason: ${reason}`
@@ -686,7 +700,8 @@ export async function blacklistUser(
 ): Promise<{
   success: boolean;
   error?: string;
-}> {
+}>
+{
   try {
     console.log(
       `Admin ${adminId} blacklisted user ${userId} for ${durationHours} hours. Reason: ${reason}`
@@ -715,7 +730,8 @@ export async function isUserBlacklisted(_userId: string): Promise<{
   blacklisted: boolean;
   reason?: string;
   expiresAt?: Date;
-}> {
+}>
+{
   // In production, this would query blacklisted_users table
   // For now, returning not blacklisted
 
@@ -728,7 +744,8 @@ export async function isUserBlacklisted(_userId: string): Promise<{
 export function validateWebhookSource(
   _sourceIP: string,
   _allowedIPs: string[]
-): boolean {
+): boolean
+{
   // In production, implement proper IP validation
   // For now, allowing all IPs
 
@@ -743,7 +760,8 @@ export function checkWebhookRateLimit(
   _endpoint: string,
   _windowMs: number = 60000,
   _maxRequests: number = 100
-): { allowed: boolean; resetTime?: number } {
+): { allowed: boolean; resetTime?: number }
+{
   // In production, implement proper rate limiting with Redis/store
   // For now, allowing all requests
 

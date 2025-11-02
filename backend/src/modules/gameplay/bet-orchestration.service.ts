@@ -292,6 +292,50 @@ export async function processBet(
       };
     }
 
+    // 1.5. Game initialization validation - ensure game is properly initialized before bet processing
+    if (!game) {
+      console.error(`[processBet] Game ${validatedBetRequest.gameId} not found during validation`);
+      await notifyError(
+        betRequest.userId,
+        `Game ${validatedBetRequest.gameId} not found`
+      );
+      return {
+        userId: validatedBetRequest.userId,
+        gameId: validatedBetRequest.gameId,
+        wagerAmount: validatedBetRequest.wagerAmount,
+        winAmount: 0,
+        balanceType: "real",
+        newBalance: 0,
+        jackpotContribution: 0,
+        vipPointsEarned: 0,
+        ggrContribution: 0,
+        success: false,
+        error: `Game not found`,
+        time: Date.now() - startTime,
+      };
+    }
+
+    // Validate game initialization state - check for null startedAt and critical statistics
+    const gameInitializationIssues: string[] = [];
+    if (!game.startedAt) {
+      gameInitializationIssues.push('startedAt is null');
+      console.warn(`[processBet] Game ${game.name} (${game.id}) has null startedAt - statistics may be inaccurate`);
+    }
+
+    // Check for null statistics fields (should be initialized to 0)
+    const statFields = ['totalBetAmount', 'totalWonAmount', 'totalBets', 'totalWins', 'hitPercentage', 'totalPlayers', 'totalMinutesPlayed'];
+    for (const field of statFields) {
+      if (game[field] === null || game[field] === undefined) {
+        gameInitializationIssues.push(`${field} is null/undefined`);
+      }
+    }
+
+    if (gameInitializationIssues.length > 0) {
+      console.warn(`[processBet] Game ${game.name} (${game.id}) has initialization issues: ${gameInitializationIssues.join(', ')}`);
+      // Don't fail the bet for existing games, but log the issues for monitoring
+      // This provides backward compatibility while alerting about data quality issues
+    }
+
     // 2. Get user's active balance
 
     if (!userBalance) {
@@ -506,8 +550,28 @@ export async function processBet(
     const newTotalWonAmount = (currentGame.totalWonAmount || 0) + validatedGameOutcome.winAmount;
     const newCurrentRtp = newTotalBetAmount > 0 ? (newTotalWonAmount / newTotalBetAmount) * 100 : 0;
 
-    const startedAt = currentGame.startedAt ? new Date(currentGame.startedAt) : new Date();
-    const totalMinutesPlayed = Math.floor(((new Date().getTime() - startedAt.getTime()) / (1000 * 60)));
+    // Robust totalMinutesPlayed calculation with null startedAt handling
+    let totalMinutesPlayed: number;
+    if (currentGame.startedAt) {
+      const startedAt = new Date(currentGame.startedAt);
+      const now = new Date();
+      const timeDiffMs = now.getTime() - startedAt.getTime();
+
+      // Ensure non-negative result and handle edge cases
+      totalMinutesPlayed = Math.max(0, Math.floor(timeDiffMs / (1000 * 60)));
+
+      // Log warning if startedAt appears invalid (future date)
+      if (timeDiffMs < 0) {
+        console.warn(`[totalMinutesPlayed] Game ${validatedBetRequest.gameId} has startedAt in the future: ${startedAt.toISOString()}`);
+      }
+    } else {
+      // Fallback: use createdAt if startedAt is null (backward compatibility)
+      console.warn(`[totalMinutesPlayed] Game ${validatedBetRequest.gameId} has null startedAt, using createdAt as fallback`);
+      const fallbackStartedAt = currentGame.createdAt ? new Date(currentGame.createdAt) : new Date();
+      const now = new Date();
+      const timeDiffMs = now.getTime() - fallbackStartedAt.getTime();
+      totalMinutesPlayed = Math.max(0, Math.floor(timeDiffMs / (1000 * 60)));
+    }
 
 try {
       const updatedGame = await updateGameNative(validatedBetRequest.gameId, {

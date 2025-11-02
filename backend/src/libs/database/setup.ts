@@ -47,36 +47,46 @@ async function setupAuth()
 }
 export const seedGames = async () =>
 {
-  // const games = [
-  //   {
-  //     id: "cfc-crash",
-  //     name: "CFC Crash",
-  //     provider: "house",
-  //     category: "crash",
-  //     bannerUrl:
-  //       "https://crqbazcsrncvbnapuxcp.supabase.co/storage/v1/object/public/game-assets/cfc-crash.webp",
-  //     tags: ["trending", "new", "hot"],
-  //   },
-  //   {
-  //     id: "pragmatic-gates-of-olympus",
-  //     name: "Gates of Olympus",
-  //     provider: "pragmatic",
-  //     category: "slots",
-  //     bannerUrl:
-  //       "https://crqbazcsrncvbnapuxcp.supabase.co/storage/v1/object/public/game-assets/gates-of-olympus.webp",
-  //     tags: ["popular", "slots"],
-  //   },
-  // ];
-  //https://configs.cashflowcasino.com/house/games_large.json
   const _games = await fetch(
     "https://configs.cashflowcasino.com/house/games_small.json"
   );
   const games = await _games.json() as unknown as Game[]
 
+  const now = new Date();
+
   for (const game of games) {
-    game.id = uuidv4()
+    // Generate UUID for game ID
+    game.id = uuidv4();
+
+    // Enhanced game initialization with proper timestamps and statistics seeding
+    game.createdAt = game.createdAt || now;
+    game.updatedAt = now;
+
+    // Initialize startedAt with createdAt timestamp for proper tracking
+    game.startedAt = game.createdAt;
+
+    // Initialize statistics fields with proper defaults (0 instead of null)
+    game.totalBetAmount = game.totalBetAmount ?? 0;
+    game.totalWonAmount = game.totalWonAmount ?? 0;
+    game.totalBets = game.totalBets ?? 0;
+    game.totalWins = game.totalWins ?? 0;
+    game.hitPercentage = game.hitPercentage ?? 0;
+    game.totalPlayers = game.totalPlayers ?? 0;
+    game.totalMinutesPlayed = game.totalMinutesPlayed ?? 0;
+
+    // Initialize distinctPlayers as empty array if not provided
+    game.distinctPlayers = game.distinctPlayers ?? [];
+
+    // Initialize current RTP calculation (will be updated with first bet)
+    game.currentRtp = game.currentRtp ?? 0;
+
+    // Log game initialization for debugging
+    console.log(`Initializing game "${game.name}" (${game.id}) with startedAt: ${game.startedAt.toISOString()}`);
+
     await db.insert(gameTable).values(game).onConflictDoNothing();
   }
+
+  console.log(`Successfully seeded ${games.length} games with proper initialization`);
 };
 async function setupOperators()
 {

@@ -1163,9 +1163,11 @@ export const botService = new BotService();
 export
 {
   type BotInstance,
-  type BotManagerConfig, type BotManagerError,
-  type BotManagerInitializationError,
-  type BotManagerOperationError, type BotManagerStatus
+  type BotManagerConfig,
+  BotManagerError,
+  BotManagerInitializationError,
+  BotManagerOperationError,
+  type BotManagerStatus
 } from "./bot-manager";
 
 // Export the BotManager class (not as type)

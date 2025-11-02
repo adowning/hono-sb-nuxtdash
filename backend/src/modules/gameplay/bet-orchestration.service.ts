@@ -2,7 +2,6 @@
 import {
   notifyError,
 } from "../../shared/notifications.service";
-import { getDetailedBalance } from "./balance-management.service";
 import {
   BetRequest,
   GameOutcome,
@@ -14,14 +13,6 @@ import { onBetCompleted as onNotification } from "./listeners/notification.sende
 import { onBetCompleted as onStats } from "./listeners/stats.updater";
 import { onBetCompleted as onTransaction } from "./listeners/transaction.logger";
 import { onBetCompleted as onVIP } from "./listeners/vip.processor";
-
-import {
-  db,
-} from "@/libs/database/db";
-import { transactionLogTable } from "@/libs/database/schema";
-import { sql } from "drizzle-orm";
-
-// TODO: Instantiate settings properly
 
 /**
  * Bet processing orchestration service
@@ -129,165 +120,4 @@ export async function processBetOutcome(
   gameOutcome: GameOutcome
 ): Promise<BetOutcome> {
   return processBet(betRequest, gameOutcome);
-}
-
-// services/bet-orchestration.service.ts
-
-/**
- * Get bet processing statistics from the last 24 hours.
- */
-export async function getBetProcessingStats(): Promise<{
-  totalBets: number;
-  averageProcessingTime: number; // Calculated from actual logged processing_time data
-  successRate: number;
-  totalWagered: number;
-  totalGGR: number;
-}> {
-  try {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-    const results = await db
-      .select({
-        totalBets: sql`count(CASE WHEN type IN ('BET', 'BONUS') THEN 1 END)`, // Count wager transactionLogTable only
-        successfulBets: sql`count(CASE WHEN type IN ('BET', 'BONUS') AND status = 'COMPLETED' THEN 1 END)`, // Completed wagers
-        totalWagered: sql`coalesce(sum(CASE WHEN type IN ('BET', 'BONUS') THEN wager_amount ELSE 0 END), 0)`, // Sum wager amounts
-        totalWon: sql`coalesce(sum(CASE WHEN type = 'WIN' THEN amount ELSE 0 END), 0)`, // Sum win amounts from WIN transactionLogTable
-        averageProcessingTime: sql`coalesce(avg(CASE WHEN processing_time > 0 AND processing_time < 10000 THEN processing_time ELSE NULL END), 0)`, // Filter valid processing times (0-10s range)
-      })
-      .from(transactionLogTable)
-      .where(sql`${transactionLogTable.createdAt} >= ${twentyFourHoursAgo}`);
-
-    const stats = results[0];
-    if (!stats) {
-      return {
-        totalBets: 0,
-        averageProcessingTime: 0,
-        successRate: 100,
-        totalWagered: 0,
-        totalGGR: 0,
-      };
-    }
-
-    const totalBets = Number(stats.totalBets);
-    const successfulBets = Number(stats.successfulBets);
-    const totalWagered = Number(stats.totalWagered);
-    const totalWon = Number(stats.totalWon);
-    const averageProcessingTime = Number(stats.averageProcessingTime); // Now from DB
-
-    const successRate =
-      totalBets > 0 ? (successfulBets / totalBets) * 100 : 100;
-    const totalGGR = totalWagered - totalWon;
-
-    return {
-      totalBets,
-      averageProcessingTime,
-      successRate,
-      totalWagered,
-      totalGGR,
-    };
-  } catch (error) {
-    console.error("Failed to get bet processing stats:", error);
-    return {
-      totalBets: 0,
-      averageProcessingTime: 0,
-      successRate: 100,
-      totalWagered: 0,
-      totalGGR: 0,
-    };
-  }
-}
-/**
- * Health check for bet processing system
- */
-export async function healthCheck(): Promise<{
-  healthy: boolean;
-  checks: Record<string, boolean>;
-  responseTime: number;
-}> {
-  const startTime = Date.now();
-
-  const checks = {
-    database: await checkDatabaseConnection(),
-    walletService: await checkWalletService(),
-    jackpotService: await checkJackpotService(),
-    vipService: await checkVIPService(),
-  };
-
-  const allHealthy = Object.values(checks).every((check) => check);
-
-  return {
-    healthy: allHealthy,
-    checks,
-    responseTime: Date.now() - startTime,
-  };
-}
-
-/**
- * Individual health checks
- */
-async function checkDatabaseConnection(): Promise<boolean> {
-  try {
-    // Test database connectivity with a simple query
-    await db.execute(sql`SELECT 1`);
-    return true;
-  } catch (error) {
-    console.error("Database connection check failed:", error);
-    return false;
-  }
-}
-async function checkWalletService(): Promise<boolean> {
-  try {
-    const testUserId = "health-check-test-user";
-    const userBalance = await getDetailedBalance(testUserId);
-    if (!userBalance) {
-      console.error(
-        "User balance service check failed: No balance returned for test user (possible service or data issue)"
-      );
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.error(
-      "User balance service check failed: Exception during call -",
-      error instanceof Error ? error.message : "Unknown error"
-    );
-    return false;
-  }
-}
-async function checkJackpotService(): Promise<boolean> {
-  try {
-    const pools = await getJackpotPools();
-    if (!pools || typeof pools !== "object") {
-      return false;
-    }
-    const requiredGroups = ["minor", "major", "mega"];
-    for (const group of requiredGroups) {
-      if (!pools[group as keyof typeof pools]) {
-        return false;
-      }
-    }
-    return true;
-  } catch (error) {
-    console.error("Jackpot service check failed:", error);
-    return false;
-  }
-}
-
-async function checkVIPService(): Promise<boolean> {
-  try {
-    const levels = getVIPLevels();
-    if (!Array.isArray(levels) || levels.length === 0) {
-      return false;
-    }
-    const hasBasicLevels =
-      levels.some((level) => level.level === 1) &&
-      levels.some((level) => level.level === 2);
-    if (!hasBasicLevels) {
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.error("VIP service check failed:", error);
-    return false;
-  }
 }

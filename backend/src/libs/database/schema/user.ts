@@ -101,19 +101,18 @@ export type UserBalanceSelect = typeof userBalanceTable.$inferSelect &
   UserBalance;
 
 
-type BetResult = {
+export type BetResult = {
   wagerAmount: number
-  winAmount: number
-  type: "BET",
   realBalanceBefore: number
   realBalanceAfter: number
   bonusBalanceBefore: number
   bonusBalanceAfter: number
+  winAmount: number
+  vipPointsAdded: number
   ggrContribution: number
   jackpotContribution: number
-  vipPointsAdded: number
-  processingTime: number | null
-  status: "PENDING",
+  processingTime: number
+  currentGameSessionRtp: number | 0
 };
 
 export const gameSessionTable = pgTable(
@@ -124,7 +123,7 @@ export const gameSessionTable = pgTable(
     updatedAt: timestampColumns.updatedAt,
     version: integer("version").default(1).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
-    // authSessionId: uuid("auth_session_id").references(() => sessionTable.id), // Will relate to sessionTable
+    authSessionId: uuid("auth_session_id").references(() => sessionTable.id), // Will relate to sessionTable
     userId: uuid("user_id")
       .notNull()
       .references(() => userTable.id),
@@ -133,8 +132,10 @@ export const gameSessionTable = pgTable(
     status: sessionStatusEnum("status").default("ACTIVE").notNull(),
     totalWagered: integer("total_wagered").default(0),
     totalWon: integer("total_won").default(0),
+    gameSessionRtp: integer("session_rtp").default(0),
     startingBalance: integer("starting_balance"),
     endingBalance: integer("ending_balance"),
+    // sessionId: uuid("session_id"),
     betResults: jsonb("bets")
       .$type<BetResult[]>()
       .default([])

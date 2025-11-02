@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { getOrCreateBalance } from "./balance-management.service";
 
 import { db } from "@/libs/database/db";
-import { gameSessionTable, userTable } from "@/libs/database/schema";
+import { gameSessionTable, sessionTable, userTable } from "@/libs/database/schema";
 import { v4 as uuidv4 } from 'uuid';
 import { type BetRequest, processBet } from "./bet-orchestration.service";
 import
@@ -119,7 +119,7 @@ export interface BotServiceDependencies
 }
 
 const DEFAULT_CONFIG: BotConfig = {
-  betInterval: 5000, // 5 seconds
+  betInterval: 2000, // 5 seconds
   minWager: 100, // $1.00
   maxWager: 1000, // $10.00
   gameName: null,
@@ -136,8 +136,10 @@ export class BotService
   private isRunning = false;
   private intervalId: NodeJS.Timeout | null = null;
   private config: BotConfig;
+  private results: any[] = [];
   private gameName: string | null = null;
   private gameId: string | null = null;
+  private operatorId: string | null = null;
   private lastActivity: Date | null = null;
   private depositAttempts = 0;
   private readonly dependencies: BotServiceDependencies;
@@ -196,7 +198,7 @@ export class BotService
 
       this.gameName = selectedGame.name;
       this.gameId = selectedGame.id;
-
+      this.operatorId = selectedGame.operatorId;
       // Find or create bot user
       const user = await this.findOrCreateBotUser(botUsername, botEmail, botPassword);
 
@@ -293,7 +295,7 @@ export class BotService
       gameName: this.gameName,
       gameId: this.gameId,
     };
-    this.gameSessionId = sessionData.id
+    this.gameSessionId = sessionData.id;
     // Check for existing session
     const existingSession = await this.dependencies.database.query.gameSessionTable.findFirst({
       where: and(
@@ -344,9 +346,29 @@ export class BotService
         if (sessionTokenParts.length >= 2) {
           const tokenPayload = JSON.parse(Buffer.from(sessionTokenParts[1] as string, 'base64').toString('ascii'));
           this.sessionId = tokenPayload.session_id;
+          console.log(tokenPayload)
         }
+
+        // Ensure we have a valid sessionId and userId
+        if (!this.sessionId || !this.userId) {
+          throw new Error(`Missing required session data: sessionId=${this.sessionId}, userId=${this.userId}`);
+        }
+
+        // Prepare session data with proper type handling
+        const sessionData = {
+          id: this.sessionId as string,
+          token: session.access_token,
+          userId: this.userId,
+          // ipAddress: sessionTokenParts.length >= 3 ? sessionTokenParts[2] : null,
+          // userAgent: sessionTokenParts.length >= 4 ? sessionTokenParts[3] : null,
+          activeOrganizationId: this.operatorId || null,
+          impersonatedBy: null,
+        };
+
+        await this.dependencies.database.insert(sessionTable).values(sessionData);
       } catch (e) {
         console.error('Error parsing access token:', e);
+        throw new BotAuthenticationError('Failed to create session record', e);
       }
     }
 
@@ -482,18 +504,37 @@ export class BotService
       const maxAllowedWager = Math.min(finalBalance.totalBalance, this.config.maxWager);
       const wagerAmount = Math.max(this.config.minWager, Math.min(500, maxAllowedWager));
 
-      // Prepare bet request
+      // Prepare bet request with proper null checking
+      if (!this.gameSessionId) {
+        throw new BotOperationError("Game session ID is missing");
+      }
+
       const betRequest: BetRequest = {
         userId: this.userId,
         gameId: this.gameId,
         wagerAmount,
-        sessionId: this.gameSessionId as string,
+        sessionId: this.gameSessionId,
         operatorId: "bot",
       };
 
       // Simulate game outcome
+      const rand = Math.random()
+      let winAmount = 0
+      if (rand == .7) {
+        winAmount = wagerAmount * 1.5
+      }
+      if (rand > 0.7) {
+        winAmount = wagerAmount * 2
+      }
+      if (rand > 0.8) {
+        winAmount = wagerAmount * 3
+      }
+      if (rand > 0.9) {
+        winAmount = wagerAmount * 4
+      }
+
       const gameOutcome = {
-        winAmount: Math.random() > 0.7 ? wagerAmount * 2 : 0,
+        winAmount,
         gameData: {},
       };
 
@@ -501,7 +542,38 @@ export class BotService
       const result = await this.dependencies.betService.processBet(betRequest, gameOutcome);
 
       this.lastActivity = new Date();
-      console.log(result.transactionId[0])
+      // Calculate cumulative Return to Player (RTP) percentage for current game session
+      const totalWagered = this.results.reduce((sum, bet) => sum + bet.wagerAmount, 0) + result.wagerAmount;
+      const totalWon = this.results.reduce((sum, bet) => sum + bet.winAmount, 0) + result.winAmount;
+      const cumulativeRtpPercentage = totalWagered > 0 ? Math.floor((totalWon / totalWagered) * 100) : 0;
+
+      this.results.push({
+        wagerAmount: result.wagerAmount,
+        realBalanceBefore: result.realBalanceBefore,
+        realBalanceAfter: result.realBalanceAfter,
+        bonusBalanceBefore: result.bonusBalanceBefore,
+        bonusBalanceAfter: result.bonusBalanceAfter,
+        winAmount: result.winAmount,
+        vipPointsAdded: result.vipPointsAdded,
+        ggrContribution: result.ggrContribution,
+        jackpotContribution: result.jackpotContribution,
+        processingTime: result.time,
+        currentGameSessionRtp: cumulativeRtpPercentage,
+      });
+
+      // Check if bet was successful and potentially change games (1 in 10 chance)
+      if (result.success) {
+        const shouldChangeGame = Math.random() < 0.1; // 10% chance
+
+        if (shouldChangeGame) {
+          await this.changeGame(cumulativeRtpPercentage);
+        }
+      }
+      console.log({
+
+        processingTime: result.time,
+        currentGameSessionRtp: cumulativeRtpPercentage,
+      })
       return {
         success: result.success,
         result: result.success ? {
@@ -549,6 +621,74 @@ export class BotService
       await this.initialize();
     } catch (error) {
       throw new BotOperationError("Failed to reinitialize bot after session expiry", error);
+    }
+  }
+
+  /**
+   * Change to a new random game (1 in 10 chance after each bet)
+   */
+  private async changeGame(cumulativeRtpPercentage: number): Promise<void>
+  {
+    if (!this.userId || !this.gameId) {
+      throw new BotOperationError("Cannot change game: bot not properly initialized");
+    }
+
+    try {
+      // Mark current game session as completed
+      if (this.gameSessionId) {
+        await this.dependencies.database
+          .update(gameSessionTable)
+          .set({ status: "COMPLETED", isActive: false, betResults: this.results, gameSessionRtp: cumulativeRtpPercentage })
+          .where(and(
+            eq(gameSessionTable.id, this.gameSessionId),
+            eq(gameSessionTable.userId, this.userId)
+          ));
+        this.results = [];
+      }
+
+      // Get all available games
+      const allGames = await this.dependencies.database.query.gameTable.findMany();
+
+      if (!allGames || allGames.length === 0) {
+        throw new BotOperationError("No games available for game change");
+      }
+
+      // Filter out current game and select a random new one
+      const availableGames = allGames.filter(game => game.id !== this.gameId);
+
+      if (availableGames.length === 0) {
+        // If no other games available, use current game
+        return;
+      }
+
+      // Select random game from available games
+      const randomIndex = Math.floor(Math.random() * availableGames.length);
+      const selectedGame = availableGames[randomIndex];
+
+      if (!selectedGame || !selectedGame.id || !selectedGame.name) {
+        throw new BotOperationError("Invalid game data received for game change");
+      }
+
+      // Update bot's current game
+      this.gameName = selectedGame.name;
+      this.gameId = selectedGame.id;
+
+      // Create new game session
+      const sessionData = {
+        id: uuidv4(),
+        userId: this.userId,
+        authSessionId: this.sessionId,
+        status: "ACTIVE" as const,
+        gameName: this.gameName,
+        gameId: this.gameId,
+      };
+
+      await this.dependencies.database.insert(gameSessionTable).values(sessionData);
+      this.gameSessionId = sessionData.id;
+
+      console.log(`Game changed to: ${this.gameName} (ID: ${this.gameId})`);
+    } catch (error) {
+      throw new BotOperationError("Failed to change game", error);
     }
   }
 

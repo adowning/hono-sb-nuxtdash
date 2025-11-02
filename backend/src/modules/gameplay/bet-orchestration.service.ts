@@ -59,15 +59,32 @@ export async function processBet(
       gameOutcome,
     };
 
+    const sideEffectPromises = [
+      onGGR(payload),
+      onJackpot(payload),
+      onVIP(payload),
+    ];
+
+    const [ggrResult, jackpotResult, vipResult] = await Promise.allSettled(sideEffectPromises);
+
+    const ggrContribution = ggrResult.status === 'fulfilled' ? ggrResult.value : 0;
+    const jackpotContribution = jackpotResult.status === 'fulfilled' ? jackpotResult.value : 0;
+    const vipPointsAdded = vipResult.status === 'fulfilled' ? vipResult.value : 0;
+
+    const transactionPayload = {
+      ...payload,
+      ggrContribution,
+      jackpotContribution,
+      vipPointsAdded,
+      processingTime: Date.now() - startTime,
+    };
+
     const listeners = [
-      onGGR,
-      onJackpot,
       onNotification,
       onStats,
       onTransaction,
-      onVIP,
     ];
-    Promise.allSettled(listeners.map((listener) => listener(payload)));
+    Promise.allSettled(listeners.map((listener) => listener(transactionPayload)));
 
     // Return success response immediately
     return {
@@ -77,9 +94,9 @@ export async function processBet(
       winAmount: coreBetResult.winAmount,
       balanceType: coreBetResult.balanceType,
       newBalance: coreBetResult.realBalanceAfter + coreBetResult.bonusBalanceAfter,
-      jackpotContribution: 0, // These values are now calculated in the listeners
-      vipPointsEarned: 0,
-      ggrContribution: 0,
+      jackpotContribution,
+      vipPointsEarned: vipPointsAdded,
+      ggrContribution,
       success: true,
       transactionId: undefined, // This is now handled by the transaction logger
       time: Date.now() - startTime,

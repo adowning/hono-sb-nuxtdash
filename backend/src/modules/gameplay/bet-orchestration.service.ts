@@ -1,33 +1,29 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <> */
-import { z } from "zod";
-import { logGGRContribution } from "../../shared/ggr.service";
 import {
   notifyError,
-  sendPostBetNotifications,
 } from "../../shared/notifications.service";
-import { logTransaction } from "../../shared/transaction.service";
-import { getJackpotPools, processJackpotContribution } from "../jackpots/jackpot.service";
 import { getDetailedBalance } from "./balance-management.service";
 import {
   BetRequest,
   GameOutcome,
-  betRequestSchema,
   executeCoreBet,
-  gameOutcomeSchema,
 } from "./core-bet.service";
+import { onBetCompleted as onGGR } from "./listeners/ggr.logger";
+import { onBetCompleted as onJackpot } from "./listeners/jackpot.processor";
+import { onBetCompleted as onNotification } from "./listeners/notification.sender";
+import { onBetCompleted as onStats } from "./listeners/stats.updater";
+import { onBetCompleted as onTransaction } from "./listeners/transaction.logger";
+import { onBetCompleted as onVIP } from "./listeners/vip.processor";
 
 import {
   db,
-  findFirstGameNative,
-  updateGameNative,
 } from "@/libs/database/db";
 import { transactionLogTable } from "@/libs/database/schema";
 import { sql } from "drizzle-orm";
 import {
-  addXpToUser,
-  calculateXpForWagerAndWins,
   getVIPLevels,
 } from "./vip.service";
+import { getJackpotPools } from "../jackpots/jackpot.service";
 
 // TODO: Instantiate settings properly
 
@@ -70,113 +66,36 @@ export async function processBet(
   try {
     const coreBetResult = await executeCoreBet(betRequest, gameOutcome);
 
-    // Destructure for clarity
-    const {
-      userId,
-      gameId,
-      wagerAmount,
-      winAmount,
-      realBalanceBefore,
-      bonusBalanceBefore,
-      realBalanceAfter,
-      bonusBalanceAfter,
-      balanceType,
-    } = coreBetResult;
+    const payload = {
+      ...coreBetResult,
+      betRequest,
+      gameOutcome,
+    };
 
-    // --- Side Effects Orchestration ---
-    const sideEffectPromises = [];
-
-    // 3. Jackpot Contribution
-    const jackpotPromise = processJackpotContribution(gameId, wagerAmount)
-      .catch(error => {
-        console.error("Jackpot contribution failed, continuing with zero contribution:", error);
-        return { totalContribution: 0 };
-      });
-    sideEffectPromises.push(jackpotPromise);
-
-    // 7. VIP Points Calculation & Update
-    const vipCalculation = calculateXpForWagerAndWins(wagerAmount);
-    const vipUpdatePromise = addXpToUser(userId, vipCalculation.totalPoints)
-      .catch(error => {
-        console.error("VIP update failed, continuing:", error);
-        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-      });
-    sideEffectPromises.push(vipUpdatePromise);
-
-    // 10. GGR Contribution Logging
-    const ggrPromise = logGGRContribution({
-      betId: `bet_${Date.now()}`,
-      userId,
-      affiliateName: betRequest.affiliateName || "adminuser",
-      operatorId: betRequest.operatorId || "house",
-      gameId,
-      wagerAmount,
-      winAmount,
-      currency: "USD",
-    }).catch(error => {
-      console.error("GGR contribution logging failed, continuing with zero GGR:", error);
-      return { ggrAmount: 0 };
-    });
-    sideEffectPromises.push(ggrPromise);
-
-    // Execute all side effects in parallel
-    const [jackpotResult, vipUpdate, ggrResult] = await Promise.allSettled(sideEffectPromises);
-
-    const totalJackpotContribution = jackpotResult.status === 'fulfilled' ? jackpotResult.value.totalContribution : 0;
-    const ggrContribution = ggrResult.status === 'fulfilled' ? ggrResult.value.ggrAmount : 0;
-
-    const processingTime = Date.now() - startTime;
-    // 11. Log Comprehensive Transaction
-    const transactionId = await logTransaction({
-      userId,
-      gameId,
-      operatorId: "79032f3f-7c4e-4575-abf9-4298ad3e9d1a",
-      wagerAmount,
-      winAmount,
-      type: "BET",
-      realBalanceBefore,
-      realBalanceAfter,
-      bonusBalanceBefore,
-      bonusBalanceAfter,
-      processingTime,
-      ggrContribution,
-      jackpotContribution: totalJackpotContribution,
-      vipPointsAdded: vipCalculation.totalPoints,
-      sessionId: betRequest.sessionId,
-      status: "COMPLETED",
-    });
-
-    // 12. Send Realtime Notifications (fire and forget)
-    sendPostBetNotifications(userId, JSON.stringify({
-      balanceChange: {
-        realBalance: realBalanceAfter - realBalanceBefore,
-        bonusBalance: bonusBalanceAfter - bonusBalanceBefore,
-        totalBalance: realBalanceAfter + bonusBalanceAfter,
-        changeAmount: (winAmount - wagerAmount).toString(),
-        changeType: winAmount > 0 ? "win" : "bet",
-      },
-      vipUpdate: vipUpdate.status === 'fulfilled' && vipUpdate.value.success,
-      jackpotContribution: totalJackpotContribution,
-    })).catch(error => console.error("Realtime notifications failed:", error));
-
-    // 13. Update Game Statistics (fire and forget)
-    updateGameStatistics(gameId, userId, wagerAmount, winAmount)
-      .catch(error => console.error(`Failed to update game ${gameId} statistics:`, error));
+    const listeners = [
+      onGGR,
+      onJackpot,
+      onNotification,
+      onStats,
+      onTransaction,
+      onVIP,
+    ];
+    Promise.allSettled(listeners.map((listener) => listener(payload)));
 
     // Return success response immediately
     return {
-      userId,
-      gameId,
-      wagerAmount,
-      winAmount,
-      balanceType,
-      newBalance: realBalanceAfter + bonusBalanceAfter,
-      jackpotContribution: totalJackpotContribution,
-      vipPointsEarned: vipCalculation.totalPoints,
-      ggrContribution: ggrContribution,
+      userId: coreBetResult.userId,
+      gameId: coreBetResult.gameId,
+      wagerAmount: coreBetResult.wagerAmount,
+      winAmount: coreBetResult.winAmount,
+      balanceType: coreBetResult.balanceType,
+      newBalance: coreBetResult.realBalanceAfter + coreBetResult.bonusBalanceAfter,
+      jackpotContribution: 0, // These values are now calculated in the listeners
+      vipPointsEarned: 0,
+      ggrContribution: 0,
       success: true,
-      transactionId,
-      time: processingTime,
+      transactionId: undefined, // This is now handled by the transaction logger
+      time: Date.now() - startTime,
     };
 
   } catch (error) {
@@ -204,67 +123,6 @@ export async function processBet(
       time: processingTime,
     };
   }
-}
-
-async function updateGameStatistics(gameId: string, userId: string, wagerAmount: number, winAmount: number) {
-  const game = await findFirstGameNative(gameId);
-  if (!game) {
-    console.warn(`Game ${gameId} not found for statistics update.`);
-    return;
-  }
-
-  let currentPlayers: string[] = [];
-    try {
-      if (game.distinctPlayers !== null && game.distinctPlayers !== undefined) {
-        const parsedPlayers = Array.isArray(game.distinctPlayers)
-          ? game.distinctPlayers
-          : JSON.parse(JSON.stringify(game.distinctPlayers));
-        currentPlayers = Array.isArray(parsedPlayers) ? parsedPlayers.filter(p => typeof p === 'string') : [];
-      }
-    } catch (error) {
-      console.warn('Failed to parse distinctPlayers, using empty array:', error);
-      currentPlayers = [];
-    }
-
-  const isNewPlayer = !currentPlayers.includes(userId);
-  const newPlayersList = isNewPlayer ? [...currentPlayers, userId] : currentPlayers;
-
-  const newTotalBets = (game.totalBets || 0) + 1;
-  const newTotalWins = (game.totalWins || 0) + (winAmount > 0 ? 1 : 0);
-  const newHitPercentage = newTotalBets > 0 ? (newTotalWins / newTotalBets) * 100 : 0;
-
-  const newTotalBetAmount = (game.totalBetAmount || 0) + wagerAmount;
-  const newTotalWonAmount = (game.totalWonAmount || 0) + winAmount;
-  const newCurrentRtp = newTotalBetAmount > 0 ? (newTotalWonAmount / newTotalBetAmount) * 100 : 0;
-
-  let totalMinutesPlayed: number;
-    if (game.startedAt) {
-      const startedAt = new Date(game.startedAt);
-      const now = new Date();
-      const timeDiffMs = now.getTime() - startedAt.getTime();
-      totalMinutesPlayed = Math.max(0, Math.floor(timeDiffMs / (1000 * 60)));
-      if (timeDiffMs < 0) {
-        console.warn(`[totalMinutesPlayed] Game ${gameId} has startedAt in the future: ${startedAt.toISOString()}`);
-      }
-    } else {
-      console.warn(`[totalMinutesPlayed] Game ${gameId} has null startedAt, using createdAt as fallback`);
-      const fallbackStartedAt = game.createdAt ? new Date(game.createdAt) : new Date();
-      const now = new Date();
-      const timeDiffMs = now.getTime() - fallbackStartedAt.getTime();
-      totalMinutesPlayed = Math.max(0, Math.floor(timeDiffMs / (1000 * 60)));
-    }
-
-  await updateGameNative(gameId, {
-    totalBets: newTotalBets,
-    totalWins: newTotalWins,
-    hitPercentage: newHitPercentage,
-    distinctPlayers: newPlayersList,
-    totalPlayers: newPlayersList.length,
-    totalBetAmount: newTotalBetAmount,
-    totalWonAmount: newTotalWonAmount,
-    currentRtp: newCurrentRtp,
-    totalMinutesPlayed: totalMinutesPlayed,
-  });
 }
 
 /**

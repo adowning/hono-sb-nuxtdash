@@ -23,7 +23,6 @@ import { sql } from "drizzle-orm";
 import {
   getVIPLevels,
 } from "./vip.service";
-import { getJackpotPools } from "../jackpots/jackpot.service";
 
 // TODO: Instantiate settings properly
 

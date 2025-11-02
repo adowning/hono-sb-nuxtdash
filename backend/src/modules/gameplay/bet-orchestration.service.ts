@@ -2,36 +2,36 @@
 import { z } from "zod";
 import { logGGRContribution } from "../../shared/ggr.service";
 import
-{
-  notifyError,
-  sendPostBetNotifications,
-} from "../../shared/notifications.service";
+  {
+    notifyError,
+    sendPostBetNotifications,
+  } from "../../shared/notifications.service";
 import { logTransaction } from "../../shared/transaction.service";
 import { getJackpotPools, processJackpotContribution } from "../jackpots/jackpot.service";
 import
-{
-  addWinnings,
-  deductBetAmount,
-  getDetailedBalance,
-} from "./balance-management.service";
+  {
+    addWinnings,
+    deductBetAmount,
+    getDetailedBalance,
+  } from "./balance-management.service";
 
 import
-{
-  db,
-  findFirstActiveGameSessionNative,
-  findFirstGameNative,
-  findFirstUserNative,
-  selectUserBalanceNative,
-} from "@/libs/database/db";
+  {
+    db,
+    findFirstActiveGameSessionNative,
+    findFirstGameNative,
+    findFirstUserNative,
+    selectUserBalanceNative,
+  } from "@/libs/database/db";
 import { transactionLogTable } from "@/libs/database/schema";
 import { validateBet } from "@/shared/restrictions.service";
 import { sql } from "drizzle-orm";
 import
-{
-  addXpToUser,
-  calculateXpForWagerAndWins,
-  getVIPLevels,
-} from "./vip.service";
+  {
+    addXpToUser,
+    calculateXpForWagerAndWins,
+    getVIPLevels,
+  } from "./vip.service";
 
 // TODO: Instantiate settings properly
 

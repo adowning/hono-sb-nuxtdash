@@ -9,7 +9,6 @@ const port = 3000;
 // 	port,
 // });
 
-showRoutes(app);
 const server = Bun.serve({
   port,
   async fetch(req, server)

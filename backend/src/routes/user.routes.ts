@@ -185,9 +185,18 @@ const userRoutes = new Hono<{ Variables: AppBindings }>()
             });
             console.log(response);
 
-            // Note: You probably want to add pagination metadata to this response as well,
-            // similar to the '/' route.
-            return c.json(response);
+            const paginationMeta = createPaginationMeta(
+                paginationParams.page!,
+                paginationParams.perPage!,
+                totalCount,
+            );
+
+            const paginatedResponse: PaginatedResponse<typeof response[0]> = {
+                data: response,
+                pagination: paginationMeta,
+            };
+
+            return c.json(paginatedResponse);
         } catch (error) {
             console.error("Error fetching users with balances:", error);
             return c.json({ error: "Failed to fetch users with balances" }, 500);

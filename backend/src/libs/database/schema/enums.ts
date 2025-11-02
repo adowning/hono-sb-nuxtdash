@@ -42,6 +42,7 @@ export const userRoleEnum = pgEnum("user_role_enum", [
   "AFFILIATE",
   "ADMIN",
   "OPERATOR",
+  "BOT"
 ]);
 
 export const sessionStatusEnum = pgEnum("session_status_enum", [

@@ -169,11 +169,18 @@ export class BotService
    */
   async initialize(): Promise<boolean>
   {
-    try {
-      const botUsername = "AutomatedBot";
-      const botPassword = process.env.BOT_PASSWORD || "secure-bot-password";
-      const botEmail = "bot@example.com";
+    const botPassword = process.env.BOT_PASSWORD || "secure-bot-password";
+    const botEmail = "bot@example.com";
 
+    return this.initializeWithUser(null, botEmail, botPassword);
+  }
+
+  /**
+   * Initialize the bot with a specific user (for multi-bot scenarios)
+   */
+  async initializeWithUser(userId: string | null, email: string, password: string): Promise<boolean>
+  {
+    try {
       // Validate configuration
       if (this.config.betInterval < 1000) {
         throw new BotInitializationError(
@@ -199,23 +206,37 @@ export class BotService
       this.gameName = selectedGame.name;
       this.gameId = selectedGame.id;
       this.operatorId = selectedGame.operatorId;
-      // Find or create bot user
-      const user = await this.findOrCreateBotUser(botUsername, botEmail, botPassword);
 
-      if (!user || !user.id) {
-        throw new BotInitializationError("Failed to find or create bot user");
+      let user;
+
+      if (userId) {
+        // Use existing user
+        user = await this.dependencies.database.query.userTable.findFirst({
+          where: eq(userTable.id, userId),
+        });
+
+        if (!user || !user.id) {
+          throw new BotInitializationError(`Failed to find bot user with ID: ${userId}`);
+        }
+
+        this.userId = user.id;
+      } else {
+        // Create new user (legacy mode)
+        const botUsername = "AutomatedBot";
+        user = await this.findOrCreateBotUser(botUsername, email, password);
+
+        if (!user || !user.id) {
+          throw new BotInitializationError("Failed to find or create bot user");
+        }
+
+        this.userId = user.id;
       }
 
-      this.userId = user.id;
-
-
-
       // Authenticate user
-      await this.authenticateBotUser(botEmail, botPassword);
+      await this.authenticateBotUser(email, password);
 
       // Set up game session
       await this.initializeGameSession();
-
 
       this.lastActivity = new Date();
       return true;
@@ -797,11 +818,23 @@ export class BotService
   }
 }
 
-// Singleton instance for backward compatibility
+// Legacy singleton instance for backward compatibility
 export const botService = new BotService();
 
+// Export BotManager and related types for new multi-bot functionality
+export {
+  BotManager,
+  BotManagerError,
+  BotManagerInitializationError,
+  BotManagerOperationError,
+  BotInstance,
+  BotManagerConfig,
+  BotManagerStatus
+} from "./bot-manager";
+
 /**
- * Start manufactured gameplay with optional configuration
+ * Legacy function for single bot gameplay (for backward compatibility)
+ * @deprecated Use startManufacturedGameplayMulti instead
  */
 export async function startManufacturedGameplay(
   config: Partial<BotConfig> = {}
@@ -822,6 +855,37 @@ export async function startManufacturedGameplay(
 }
 
 /**
+ * Start manufactured gameplay with multiple bots
+ */
+export async function startManufacturedGameplayMulti(
+  config: Partial<BotConfig> = {},
+  botCount: number = 5
+): Promise<BotManager>
+{
+  try {
+    const { BotManager } = await import("./bot-manager");
+    
+    const managerConfig = {
+      botCount,
+      botConfig: config,
+      maxRetries: 3,
+      retryDelay: 5000,
+    };
+
+    const manager = new BotManager(managerConfig);
+    await manager.initialize();
+    await manager.start();
+
+    return manager;
+  } catch (error) {
+    if (error instanceof BotServiceError) {
+      throw error;
+    }
+    throw new BotOperationError("Failed to start manufactured gameplay with multiple bots", error);
+  }
+}
+
+/**
  * Stop manufactured gameplay
  */
 export function stopManufacturedGameplay(): void
@@ -838,4 +902,15 @@ export function createBotService(
 ): BotService
 {
   return new BotService(config, dependencies);
+}
+
+/**
+ * Get bot manager instance (for dependency injection testing)
+ */
+export function createBotManager(
+  config: import("./bot-manager").BotManagerConfig
+): BotManager
+{
+  const { BotManager } = require("./bot-manager");
+  return new BotManager(config);
 }

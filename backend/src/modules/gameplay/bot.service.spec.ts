@@ -7,8 +7,14 @@ import
     BotOperationError,
     BotService,
     BotServiceError,
-    createBotService
+    createBotService,
+    BotManager,
+    createBotManager,
+    BotManagerError,
+    BotManagerInitializationError,
+    BotManagerOperationError
 } from './bot.service';
+import { BotManager as ExternalBotManager } from './bot-manager';
 
 // Mock dependencies
 const mockSupabase = {
@@ -31,6 +37,7 @@ const mockDb = {
         },
     },
     insert: vi.fn(),
+    execute: vi.fn(),
 };
 
 const mockBalanceService = {
@@ -117,7 +124,7 @@ describe('BotService', () =>
             const defaultBot = new BotService();
             const status = defaultBot.getStatus();
 
-            expect(status.config.betInterval).toBe(5000);
+            expect(status.config.betInterval).toBe(2000);
             expect(status.config.minWager).toBe(100);
             expect(status.config.maxWager).toBe(1000);
             expect(status.config.gameName).toBeNull();
@@ -242,5 +249,137 @@ describe('Bot Service Factory Functions', () =>
 
         const status = service.getStatus();
         expect(status.config.betInterval).toBe(1000);
+    });
+});
+
+describe('BotManager', () =>
+{
+    describe('Error Classes', () =>
+    {
+        it('should create BotManagerError with correct properties', () =>
+        {
+            const error = new BotManagerError('Test error', 'TEST_CODE', 'test cause');
+
+            expect(error.message).toBe('Test error');
+            expect(error.code).toBe('TEST_CODE');
+            expect(error.cause).toBe('test cause');
+            expect(error.name).toBe('BotManagerError');
+        });
+
+        it('should create BotManagerInitializationError with correct code', () =>
+        {
+            const error = new BotManagerInitializationError('Init failed', 'test cause');
+
+            expect(error.code).toBe('BOT_MANAGER_INITIALIZATION_FAILED');
+            expect(error.name).toBe('BotManagerInitializationError');
+        });
+
+        it('should create BotManagerOperationError with correct code', () =>
+        {
+            const error = new BotManagerOperationError('Operation failed', 'test cause');
+
+            expect(error.code).toBe('BOT_MANAGER_OPERATION_FAILED');
+            expect(error.name).toBe('BotManagerOperationError');
+        });
+    });
+
+    describe('Configuration', () =>
+    {
+        it('should throw error for invalid bot count', () =>
+        {
+            expect(() => new ExternalBotManager({ botCount: 0 })).toThrow(BotManagerInitializationError);
+            expect(() => new ExternalBotManager({ botCount: 25 })).toThrow(BotManagerInitializationError);
+        });
+
+        it('should create manager with valid configuration', () =>
+        {
+            const manager = new ExternalBotManager({
+                botCount: 3,
+                botConfig: { betInterval: 3000 },
+            });
+
+            expect(manager).toBeInstanceOf(ExternalBotManager);
+        });
+
+        it('should use default configuration when not provided', () =>
+        {
+            const manager = new ExternalBotManager({
+                botCount: 5,
+            });
+
+            expect(manager).toBeInstanceOf(ExternalBotManager);
+        });
+    });
+
+    describe('Status and Metrics', () =>
+    {
+        it('should return correct initial status', () =>
+        {
+            const manager = new ExternalBotManager({ botCount: 3 });
+            const status = manager.getStatus();
+
+            expect(status.isRunning).toBe(false);
+            expect(status.totalBots).toBe(0); // Not initialized yet
+            expect(status.runningBots).toBe(0);
+            expect(status.stoppedBots).toBe(0);
+            expect(status.errorBots).toBe(0);
+            expect(status.uptime).toBe(0);
+            expect(status.botInstances).toEqual([]);
+        });
+    });
+
+    describe('Service Lifecycle', () =>
+    {
+        it('should not start when already running', async () =>
+        {
+            const manager = new ExternalBotManager({ botCount: 2 });
+            
+            // Mock the initialization to avoid database calls
+            vi.spyOn(manager as any, 'initialize').mockResolvedValue(undefined);
+            Object.defineProperty(manager, 'isRunning', { value: true });
+
+            await expect(manager.start()).resolves.not.toThrow();
+        });
+
+        it('should stop correctly', () =>
+        {
+            const manager = new ExternalBotManager({ botCount: 2 });
+            
+            // Set some state
+            Object.defineProperty(manager, 'isRunning', { value: true });
+            Object.defineProperty(manager, 'startTime', { value: new Date() });
+
+            manager.stop();
+
+            const status = manager.getStatus();
+            expect(status.isRunning).toBe(false);
+            expect(status.uptime).toBe(0);
+        });
+    });
+
+    describe('Dependency Injection', () =>
+    {
+        it('should create bot manager with factory function', () =>
+        {
+            const manager = createBotManager({
+                botCount: 3,
+                botConfig: { betInterval: 2000 },
+            });
+
+            expect(manager).toBeInstanceOf(ExternalBotManager);
+        });
+    });
+});
+
+describe('Bot Service Factory Functions', () =>
+{
+    it('should create bot manager with factory function', () =>
+    {
+        const manager = createBotManager({
+            botCount: 3,
+            botConfig: { betInterval: 1000 },
+        });
+
+        expect(manager).toBeInstanceOf(ExternalBotManager);
     });
 });

@@ -11,17 +11,19 @@ import { and, count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 
 // Pagination helper functions
-const parsePaginationParams = (params: URLSearchParams): PaginationParams =>
+const parsePaginationParams = (params: URLSearchParams): PaginationParams & { category?: string; query?: string } =>
 {
     const pageNum = parseInt(params.get("page") || "1");
     const perPageNum = parseInt(params.get("perPage") || "10");
+    const category = params.get("category") || undefined;
+    const query = params.get("query") || undefined;
 
     const page = Number.isNaN(pageNum) ? 1 : Math.max(1, pageNum);
     const perPage = Number.isNaN(perPageNum)
         ? 10
         : Math.min(100, Math.max(1, perPageNum));
 
-    return { page, perPage };
+    return { page, perPage, category, query };
 };
 
 const validatePaginationParams = (
@@ -74,12 +76,12 @@ const gameRoutes = new Hono<{ Variables: AppBindings }>()
             const currentUser = c.get("user");
 
             if (!currentUser) {
-                return c.json({ error: "Game not authenticated" }, 401);
+                return c.json({ error: "User not authenticated" }, 401);
             }
 
             // Ensure currentGame has operatorId
             if (!currentUser.operatorId) {
-                return c.json({ error: "Game operatorId not found" }, 400);
+                return c.json({ error: "User operatorId not found" }, 400);
             }
 
             // Parse and validate pagination parameters
@@ -91,33 +93,60 @@ const gameRoutes = new Hono<{ Variables: AppBindings }>()
                 return c.json({ error: validation.error }, 400);
             }
 
-            const { page, perPage } = paginationParams;
+            const { page, perPage, category, query } = paginationParams;
             const offset = (paginationParams.page! - 1) * paginationParams.perPage!;
+
+            // Build where conditions
+            const whereConditions = [];
+
+            // Add category filter if provided
+            if (category) {
+                whereConditions.push(eq(gameTable.category, category as any));
+            }
+
+            // TODO: Add query-based search for title/name if needed
+            // if (query) {
+            //     whereConditions.push(
+            //         or(
+            //             ilike(gameTable.title, `%${query}%`),
+            //             ilike(gameTable.name, `%${query}%`)
+            //         )
+            //     );
+            // }
 
             // Get total count for pagination metadata
             const [totalResult] = await db
                 .select({ count: count() })
                 .from(gameTable)
-                .where(eq(gameTable.operatorId, currentUser.operatorId));
+                .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
             const totalCount = totalResult?.count || 0;
 
-            // Get paginated games with the same operatorId as the requesting game
+            // Get paginated games with filters
             const games = await db
                 .select({
                     id: gameTable.id,
                     name: gameTable.name,
+                    isActive: gameTable.isActive,
                     title: gameTable.title,
                     developer: gameTable.developer,
+                    isFeatured: gameTable.isFeatured,
                     category: gameTable.category,
+                    volatility: gameTable.volatility,
+                    currentRtp: gameTable.currentRtp,
                     thumbnailUrl: gameTable.thumbnailUrl,
+                    totalBetAmount: gameTable.totalBetAmount,
+                    totalWonAmount: gameTable.totalWonAmount,
+                    targetRtp: gameTable.targetRtp,
                     createdAt: gameTable.createdAt,
                     updatedAt: gameTable.updatedAt,
                 })
                 .from(gameTable)
-                .where(eq(gameTable.operatorId, currentUser.operatorId))
+                .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
                 .limit(paginationParams.perPage!)
                 .offset(offset);
+
+            console.log(`Filtered games by category: ${category}, found: ${games.length} games`);
 
             const paginationMeta = createPaginationMeta(
                 paginationParams.page!,

@@ -11,6 +11,7 @@ import cache, { initializeDataCache } from "./middlewares/cache.middleware";
 import errorHandler from "./middlewares/error.middleware";
 import swaggerApp from "./middlewares/swagger.middleware";
 import authRoutes from "./routes/auth.routes";
+import gameRoutes from "./routes/game.routes";
 import meRoutes from "./routes/me.routes";
 import userRoutes from "./routes/user.routes";
 
@@ -39,6 +40,7 @@ const app = new Hono()
   .route("/auth", authRoutes)
   .route("/me", meRoutes)
   .route("/users", userRoutes)
+  .route("/games", gameRoutes)
   .onError(errorHandler);
 
 // Export the app TYPE

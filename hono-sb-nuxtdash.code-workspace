@@ -5,8 +5,23 @@
 			"path": "./backend"
 		},
 		{
-			"name": "dashboard",
-			"path": "./art-design-pro"
+			"path": "dashboard-new"
 		}
-	]
+	],
+	"settings": {
+		"files.associations": {
+			"*.css": "tailwindcss"
+		},
+		"editor.quickSuggestions": {
+			"strings": "on"
+		},
+		"tailwindCSS.includeLanguages": {
+			"plaintext": "html"
+		},
+		"tailwindCSS.classFunctions": [
+			"tw",
+			"clsx",
+			"tw\\.[a-z-]+"
+		]
+	}
 }

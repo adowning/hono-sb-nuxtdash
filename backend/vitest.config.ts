@@ -1,4 +1,3 @@
-import path from 'path';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
@@ -65,7 +64,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': '/home/ash/Documents/hono-sb-nuxtdash/backend/src',
     },
   },
 });

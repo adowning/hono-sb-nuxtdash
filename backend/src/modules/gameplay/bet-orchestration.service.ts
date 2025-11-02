@@ -20,9 +20,6 @@ import {
 } from "@/libs/database/db";
 import { transactionLogTable } from "@/libs/database/schema";
 import { sql } from "drizzle-orm";
-import {
-  getVIPLevels,
-} from "./vip.service";
 
 // TODO: Instantiate settings properly
 

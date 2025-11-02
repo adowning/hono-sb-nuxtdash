@@ -17,10 +17,6 @@ export async function notifyBalanceChange(
   userId: string,
   payload: BalanceChangeNotification
 ): Promise<void> {
-  console.log(
-    `[NotificationService] Notifying user ${userId} of balance change:`
-    // payload
-  );
   // In a real app, this would publish to a message queue or WebSocket server
   // e.g., redis.publish(`user:${userId}:balance`, JSON.stringify(payload));
 }
@@ -32,10 +28,6 @@ export async function notifyError(
   userId: string,
   message: string
 ): Promise<void> {
-  console.log(
-    `[NotificationService] Sending ERROR to user ${userId}:`
-    // message
-  );
   // In a real app, this would publish to a message queue or WebSocket server
   // e.g., redis.publish(`user:${userId}:error`, JSON.stringify({ message }));
 }
@@ -46,10 +38,6 @@ export async function sendPostBetNotifications(
   userId: string,
   message: string
 ): Promise<void> {
-  console.log(
-    `[NotificationService] Sending PostBetNotfication to user ${userId}:`
-    // message
-  );
   // In a real app, this would publish to a message queue or WebSocket server
   // e.g., redis.publish(`user:${userId}:error`, JSON.stringify({ message }));
 }

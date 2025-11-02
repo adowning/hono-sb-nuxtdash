@@ -2,6 +2,7 @@ import { SQL } from "bun";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import * as schema from "./schema";
+import { gameTable } from "./schema/game";
 
 const client = new SQL(
   // process.env.DATABASE_URL || "postgresql://postgres.crqbazcsrncvbnapuxcp:crqbazcsrncvbnapuxcp@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
@@ -116,6 +117,106 @@ export async function findFirstActiveGameSessionNative(
   } catch (error) {
     console.error("Error fetching active game session natively:", error);
     return null;
+  }
+}
+
+export async function updateGameNative(gameId: string, updates: Record<string, any>)
+{
+  try {
+    // Validate input parameters
+    if (!gameId || typeof gameId !== 'string') {
+      throw new Error(`Invalid gameId provided: ${gameId}`);
+    }
+
+    if (!updates || typeof updates !== 'object') {
+      throw new Error('Invalid updates object provided');
+    }
+
+    // Use Drizzle ORM for the update to maintain consistency
+
+    // First check if game exists and validate its state
+    const existingGame = await client`
+      SELECT * FROM "games" WHERE "id" = ${gameId} LIMIT 1
+    `;
+
+    if (!existingGame || existingGame.length === 0) {
+      console.error(`[updateGameNative] Game not found: ${gameId}`);
+      throw new Error(`Game with ID ${gameId} not found`);
+    }
+
+    const gameData = snakeToCamelCaseObject(existingGame[0]);
+
+    // Validate game initialization state
+    if (!gameData.startedAt) {
+      console.warn(`[updateGameNative] Game ${gameId} (${gameData.name}) has null startedAt - should be initialized`);
+    }
+
+    // Validate update data for critical fields
+    const criticalFields = ['totalBetAmount', 'totalWonAmount', 'totalBets', 'totalWins'];
+    for (const field of criticalFields) {
+      if (updates[field] !== undefined) {
+        const value = updates[field];
+        if (typeof value !== 'number' || isNaN(value) || value < 0) {
+          throw new Error(`Invalid value for ${field}: ${value} - must be a non-negative number`);
+        }
+      }
+    }
+
+    // Validate hit percentage if provided
+    if (updates.hitPercentage !== undefined) {
+      const hitPct = updates.hitPercentage;
+      if (typeof hitPct !== 'number' || isNaN(hitPct) || hitPct < 0 || hitPct > 100) {
+        throw new Error(`Invalid hitPercentage: ${hitPct} - must be between 0 and 100`);
+      }
+    }
+
+    // Validate totalMinutesPlayed if provided
+    if (updates.totalMinutesPlayed !== undefined) {
+      const minutes = updates.totalMinutesPlayed;
+      if (typeof minutes !== 'number' || isNaN(minutes) || minutes < 0) {
+        throw new Error(`Invalid totalMinutesPlayed: ${minutes} - must be a non-negative number`);
+      }
+    }
+
+    const result = await db.update(gameTable)
+      .set({
+        ...updates,
+        updatedAt: new Date()
+      })
+      .where(sql`id = ${gameId}`)
+      .returning();
+
+
+    const row = result.length > 0 ? result[0] : null;
+    if (!row) {
+      console.error(`[updateGameNative] Update operation failed for game ID: ${gameId} - no rows affected`);
+      throw new Error(`Game update failed - no changes were made to game ${gameId}`);
+    }
+
+    const converted = snakeToCamelCaseObject(row);
+
+    // Log successful update for debugging
+    console.log(`[updateGameNative] Successfully updated game ${converted.name} (${gameId})`);
+
+    return converted;
+  } catch (error) {
+    // Enhanced error logging with context
+    const errorContext = {
+      gameId,
+      updates: JSON.stringify(updates, null, 2),
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    };
+
+    console.error("[updateGameNative] Game update failed:", errorContext);
+
+    // Re-throw with more context to make failures visible
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error(`Game update failed for ${gameId}: ${String(error)}`);
+    }
   }
 }
 

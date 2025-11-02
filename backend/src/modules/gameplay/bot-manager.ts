@@ -1,4 +1,4 @@
-import { BotService, BotConfig, BotServiceError, BotOperationError } from "./bot.service";
+import { BotService, type BotConfig, BotServiceError, BotOperationError } from "./bot.service";
 import { db } from "@/libs/database/db";
 import { userTable } from "@/libs/database/schema";
 import { eq } from "drizzle-orm";
@@ -157,7 +157,7 @@ export class BotManager
 
         try {
           // Initialize the bot service with existing user
-          await instance.service.initializeWithUser(user.id, user.authEmail);
+          await instance.service.initializeWithUser(user.id, user.authEmail, "bot-password");
           
           instance.status = 'stopped'; // Ready to start
           this.botInstances.set(botId, instance);
@@ -454,7 +454,7 @@ export class BotManager
 
     return {
       ...instance,
-      service: undefined, // Don't expose service object
+      service: undefined as any, // Don't expose service object
     };
   }
 }

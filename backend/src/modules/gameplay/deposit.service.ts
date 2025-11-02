@@ -174,7 +174,7 @@ export async function processDepositConfirmation(
     if (!pendingDeposit.userId) {
       throw new Error("Failed to run deposit: ");
     }
-    if (pendingDeposit.amount > confirmation.amount) {
+    if (confirmation.amount < pendingDeposit.amount) {
       throw new Error(
         "the confirmation amount is not enough to satisfy deposit"
       );

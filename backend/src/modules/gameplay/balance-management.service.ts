@@ -251,13 +251,11 @@ async function getActiveBonusTotals(userIdToFind: string)
       totalWageringProgress: 0,
     };
   }
-  if (result.totalWageringProgress == null) result.totalWageringProgress = "0";
-  if (result.totalWageringRequired == null) result.totalWageringRequired = "0";
   // IMPORTANT: sum() returns a string. You must parse it.
   return {
     totalAwarded: parseInt(result.totalAwarded, 10),
-    totalWageringRequired: parseInt(result.totalWageringRequired, 10),
-    totalWageringProgress: parseInt(result.totalWageringProgress, 10),
+    totalWageringRequired: parseInt(result.totalWageringRequired ?? "0", 10),
+    totalWageringProgress: parseInt(result.totalWageringProgress ?? "0", 10),
   };
 }
 
@@ -519,7 +517,7 @@ export async function getDetailedBalance(userId: string): Promise<{
   const activeBonuses = await db.query.userBonusTable.findMany({
     where: and(
       eq(userBonusTable.userId, userId),
-      eq(userBonusTable.status, "PENDING")
+      eq(userBonusTable.status, "ACTIVE")
     ),
     orderBy: [asc(userBonusTable.createdAt)],
   });
@@ -681,11 +679,7 @@ export async function checkBalance(
     return { sufficient: false, balanceType: "real", availableAmount: 0 };
   }
   // Check real balance first (preferred)
-  console.log(
-    "playerBalance.realBalance + playerBalance.bonusBalance: ",
-    playerBalance.realBalance + playerBalance.bonusBalance
-  );
-  console.log("betAmount: ", betAmount);
+
   if (playerBalance.realBalance + playerBalance.bonusBalance >= betAmount) {
     return {
       sufficient: true,

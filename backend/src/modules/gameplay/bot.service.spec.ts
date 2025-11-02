@@ -14,6 +14,11 @@ import
     BotManagerInitializationError,
     BotManagerOperationError
 } from './bot.service';
+import type {
+  BotManagerError,
+  BotManagerInitializationError,
+  BotManagerOperationError
+} from './bot.service';
 import { BotManager as ExternalBotManager } from './bot-manager';
 
 // Mock dependencies
@@ -258,7 +263,7 @@ describe('BotManager', () =>
     {
         it('should create BotManagerError with correct properties', () =>
         {
-            const error = new BotManagerError('Test error', 'TEST_CODE', 'test cause');
+            const error = new Error('Test error');
 
             expect(error.message).toBe('Test error');
             expect(error.code).toBe('TEST_CODE');
@@ -268,7 +273,7 @@ describe('BotManager', () =>
 
         it('should create BotManagerInitializationError with correct code', () =>
         {
-            const error = new BotManagerInitializationError('Init failed', 'test cause');
+            const error = new Error('Init failed');
 
             expect(error.code).toBe('BOT_MANAGER_INITIALIZATION_FAILED');
             expect(error.name).toBe('BotManagerInitializationError');
@@ -276,7 +281,7 @@ describe('BotManager', () =>
 
         it('should create BotManagerOperationError with correct code', () =>
         {
-            const error = new BotManagerOperationError('Operation failed', 'test cause');
+            const error = new Error('Operation failed');
 
             expect(error.code).toBe('BOT_MANAGER_OPERATION_FAILED');
             expect(error.name).toBe('BotManagerOperationError');

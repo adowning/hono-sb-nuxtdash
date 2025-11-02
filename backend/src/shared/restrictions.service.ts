@@ -72,40 +72,49 @@ export async function validateBet(
 ): Promise<BetValidationResult>
 {
   try {
+    // console.log("🔍 Starting bet validation for user:", request.user.id, "game:", request.game?.name, "wager:", request.wagerAmount);
+
     // 1. Validate user session
     const sessionValidation = await validateUserSession(request);
+    if (sessionValidation.valid === false)
+      console.log("🔍 Session validation:", sessionValidation.valid ? "✅ PASSED" : "❌ FAILED:", sessionValidation.reason);
     if (!sessionValidation.valid) {
       return sessionValidation;
     }
-    // console.log(`sessionValidation : ${sessionValidation.valid}`);
+
     // 2. Validate game session and eligibility
     const gameValidation = await validateGameSession(request);
+    if (gameValidation.valid === false)
+      console.log("🔍 Game validation:", gameValidation.valid ? "✅ PASSED" : "❌ FAILED:", gameValidation.reason);
     if (!gameValidation.valid) {
       return gameValidation;
     }
-    // console.log(`gameValidation : ${gameValidation.valid}`);
 
     // 3. Validate game availability and limits
     const gameLimitsValidation = await validateGameLimits(request);
+    if (gameLimitsValidation.valid === false)
+      console.log("🔍 Game limits validation:", gameLimitsValidation.valid ? "✅ PASSED" : "❌ FAILED:", gameLimitsValidation.reason);
     if (!gameLimitsValidation.valid) {
       return gameLimitsValidation;
     }
-    // console.log(`gameLimitsValidation : ${gameLimitsValidation.valid}`);
 
     // 4. Validate wager amount limits
     const wagerValidation = await validateWagerAmount(request);
+    if (wagerValidation.valid === false)
+      console.log("🔍 Wager validation:", wagerValidation.valid ? "✅ PASSED" : "❌ FAILED:", wagerValidation.reason);
     if (!wagerValidation.valid) {
       return wagerValidation;
     }
-    // console.log(`wagerValidation : ${wagerValidation.valid}`);
 
     // 5. Validate balance sufficiency
     const balanceValidation = await validateBalance(request);
+    if (balanceValidation.valid === false)
+      console.log("🔍 Balance validation:", balanceValidation.valid ? "✅ PASSED" : "❌ FAILED:", balanceValidation.reason);
     if (!balanceValidation.valid) {
       return balanceValidation;
     }
-    // console.log(`balanceValidation : ${balanceValidation.valid}`);
-    console.log("All validations passed");
+
+    // console.log("🎉 All validations passed!");
 
     // All validations passed
     return {
@@ -116,7 +125,7 @@ export async function validateBet(
       session: sessionValidation.session,
     };
   } catch (error) {
-    console.error("Bet validation error:", error);
+    console.error("💥 Bet validation system error:", error);
     return {
       valid: false,
       reason: "Validation system error",
@@ -138,7 +147,7 @@ async function validateUserSession(
   //TODO make this from auth session
   let session = request.gameSession;
 
-  console.log("Found session:", session ? "yes" : "no");
+  // console.log("Found session:", session ? "yes" : "no");
 
   if (!session) {
     return { valid: false, reason: "No active session found" };
